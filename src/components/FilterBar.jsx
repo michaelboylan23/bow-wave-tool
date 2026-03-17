@@ -1,9 +1,12 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 
-function getUniqueSharedValues(activitiesA, activitiesB, column) {
-  const valsA = new Set(activitiesA.map(a => String(a[column] ?? '')).filter(Boolean))
-  const valsB = new Set(activitiesB.map(a => String(a[column] ?? '')).filter(Boolean))
-  return [...valsA].filter(v => valsB.has(v)).sort((a, b) => a.localeCompare(b))
+// Values that exist in ALL schedule row arrays for a given column
+function getUniqueSharedValues(scheduleList, column) {
+  if (!scheduleList || !scheduleList.length) return []
+  const valueSets = scheduleList.map(rows =>
+    new Set(rows.map(a => String(a[column] ?? '')).filter(Boolean))
+  )
+  return [...valueSets[0]].filter(v => valueSets.every(s => s.has(v))).sort((a, b) => a.localeCompare(b))
 }
 
 function MultiSelectDropdown({ column, allValues, selected, onChange }) {
@@ -130,7 +133,11 @@ function MultiSelectDropdown({ column, allValues, selected, onChange }) {
   )
 }
 
-export default function FilterBar({ rawSchedules, filterConfig, onApply }) {
+// scheduleList: RowArray[] — one row array per schedule (replaces rawSchedules)
+// availableColumns: string[] — columns the user can add as new filters
+// onAddColumn: (col: string) => void
+// onRemoveColumn: (col: string) => void
+export default function FilterBar({ scheduleList, filterConfig, onApply, availableColumns = [], onAddColumn, onRemoveColumn }) {
   const buildPending = (fc) =>
     fc.map(f => ({ column: f.column, selected: new Set(f.selectedValues) }))
 
@@ -150,8 +157,6 @@ export default function FilterBar({ rawSchedules, filterConfig, onApply }) {
     })
   }, [pending, filterConfig])
 
-  if (!filterConfig.length && !pending.length) return null
-
   const handleChange = (column, next) => {
     setPending(prev => prev.map(p => p.column === column ? { ...p, selected: next } : p))
   }
@@ -166,33 +171,62 @@ export default function FilterBar({ rawSchedules, filterConfig, onApply }) {
   const handleClearAll = () => {
     onApply(filterConfig.map(f => ({
       column: f.column,
-      selectedValues: getUniqueSharedValues(rawSchedules.early, rawSchedules.late, f.column),
+      selectedValues: getUniqueSharedValues(scheduleList, f.column),
     })))
   }
 
   const anyFiltered = filterConfig.some(f => {
-    const allVals = getUniqueSharedValues(rawSchedules.early, rawSchedules.late, f.column)
+    const allVals = getUniqueSharedValues(scheduleList, f.column)
     return f.selectedValues.length < allVals.length
   })
+
+  // Columns not yet added to filterConfig
+  const addableColumns = availableColumns.filter(c => !filterConfig.some(f => f.column === c))
+
+  const hasContent = filterConfig.length > 0 || addableColumns.length > 0
+  if (!hasContent) return null
 
   return (
     <div className="bg-gray-900 rounded-xl px-4 py-3 flex items-center gap-3">
       <p className="text-xs text-gray-500 uppercase tracking-wide font-medium shrink-0">Filters</p>
 
-      {/* Scrollable filter chips */}
+      {/* Scrollable filter chips + add button */}
       <div className="flex-1 overflow-x-auto flex items-center gap-2 min-w-0 pb-1 [&::-webkit-scrollbar]:h-3 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-700 [&::-webkit-scrollbar-thumb]:rounded-full">
         {pending.map(p => {
-          const allVals = getUniqueSharedValues(rawSchedules.early, rawSchedules.late, p.column)
+          const allVals = getUniqueSharedValues(scheduleList, p.column)
           return (
-            <MultiSelectDropdown
-              key={p.column}
-              column={p.column}
-              allValues={allVals}
-              selected={p.selected}
-              onChange={(next) => handleChange(p.column, next)}
-            />
+            <div key={p.column} className="flex items-center gap-1 shrink-0">
+              <MultiSelectDropdown
+                column={p.column}
+                allValues={allVals}
+                selected={p.selected}
+                onChange={(next) => handleChange(p.column, next)}
+              />
+              {onRemoveColumn && (
+                <button
+                  onClick={() => onRemoveColumn(p.column)}
+                  className="text-gray-600 hover:text-red-400 transition-colors text-xs leading-none px-0.5"
+                  title={`Remove ${p.column} filter`}
+                >✕</button>
+              )}
+            </div>
           )
         })}
+
+        {/* Add filter column */}
+        {onAddColumn && addableColumns.length > 0 && (
+          <select
+            value=""
+            onChange={e => e.target.value && onAddColumn(e.target.value)}
+            className="shrink-0 bg-gray-800 border border-dashed border-gray-600 hover:border-gray-400
+              rounded-lg px-2 py-1.5 text-gray-500 hover:text-white text-xs transition-colors cursor-pointer"
+          >
+            <option value="">+ Add filter</option>
+            {addableColumns.map(c => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+        )}
       </div>
 
       {/* Right side actions */}

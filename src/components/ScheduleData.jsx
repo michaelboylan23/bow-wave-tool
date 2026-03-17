@@ -23,8 +23,9 @@ function formatVal(key, val) {
   return String(val)
 }
 
-export default function ScheduleData({ schedules, scheduleInfo }) {
-  const [activeSchedule, setActiveSchedule] = useState('early')
+// schedules: [{ id, fileName, dataDate, filteredRows }]
+export default function ScheduleData({ schedules }) {
+  const [activeId, setActiveId] = useState(() => schedules?.[0]?.id ?? null)
   const [search, setSearch]                 = useState('')
   const [statusFilter, setStatusFilter]     = useState('')
   const [startFrom, setStartFrom]           = useState('')
@@ -40,7 +41,8 @@ export default function ScheduleData({ schedules, scheduleInfo }) {
   const phantomRef      = useRef(null)
   const dragIndex       = useRef(null)
 
-  const activities = activeSchedule === 'early' ? (schedules?.early ?? []) : (schedules?.late ?? [])
+  const activeSchedule = schedules?.find(s => s.id === activeId) ?? schedules?.[0]
+  const activities = activeSchedule?.filteredRows ?? []
 
   const allCols = useMemo(() => {
     if (!activities.length) return FIXED_COLS
@@ -52,7 +54,7 @@ export default function ScheduleData({ schedules, scheduleInfo }) {
 
   useEffect(() => {
     setColConfig(allCols.map(c => ({ ...c, visible: true })))
-  }, [activeSchedule])
+  }, [activeId])
 
   const visibleCols = useMemo(() =>
     (colConfig ?? allCols).filter(c => c.visible),
@@ -163,32 +165,29 @@ export default function ScheduleData({ schedules, scheduleInfo }) {
   const toggleCol  = (key) => setColConfig(prev => prev.map(c => c.key === key ? { ...c, visible: !c.visible } : c))
   const resetCols  = () => setColConfig(allCols.map(c => ({ ...c, visible: true })))
 
-  const earlyLabel = scheduleInfo?.earlyFile ?? 'Schedule 1'
-  const lateLabel  = scheduleInfo?.lateFile  ?? 'Schedule 2'
-  const earlyDate  = scheduleInfo?.earlyDate ? new Date(scheduleInfo.earlyDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''
-  const lateDate   = scheduleInfo?.lateDate  ? new Date(scheduleInfo.lateDate).toLocaleDateString('en-US',  { month: 'short', day: 'numeric', year: 'numeric' }) : ''
-
   return (
     <div className="flex flex-col gap-6 h-[calc(100vh-12rem)] min-h-0">
 
-      {/* Schedule selector */}
-      <div className="flex gap-2 shrink-0">
-        {[
-          { key: 'early', label: earlyLabel, sub: earlyDate ? `Data Date: ${earlyDate}` : '' },
-          { key: 'late',  label: lateLabel,  sub: lateDate  ? `Data Date: ${lateDate}`  : '' },
-        ].map(opt => (
-          <button
-            key={opt.key}
-            onClick={() => setActiveSchedule(opt.key)}
-            className={`flex flex-col items-start px-5 py-3 rounded-xl text-sm transition-colors border
-              ${activeSchedule === opt.key
-                ? 'bg-blue-600/20 border-blue-500 text-white'
-                : 'bg-gray-900 border-gray-700 text-gray-400 hover:text-white hover:border-gray-500'}`}
-          >
-            <span className="font-medium">{opt.label}</span>
-            {opt.sub && <span className="text-xs text-gray-400 mt-0.5">{opt.sub}</span>}
-          </button>
-        ))}
+      {/* Schedule selector — one button per uploaded schedule */}
+      <div className="flex flex-wrap gap-2 shrink-0">
+        {(schedules ?? []).map((s, i) => {
+          const ddLabel = s.dataDate
+            ? new Date(s.dataDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+            : ''
+          return (
+            <button
+              key={s.id}
+              onClick={() => setActiveId(s.id)}
+              className={`flex flex-col items-start px-5 py-3 rounded-xl text-sm transition-colors border
+                ${activeId === s.id
+                  ? 'bg-blue-600/20 border-blue-500 text-white'
+                  : 'bg-gray-900 border-gray-700 text-gray-400 hover:text-white hover:border-gray-500'}`}
+            >
+              <span className="font-medium">{s.fileName}</span>
+              {ddLabel && <span className="text-xs text-gray-400 mt-0.5">Data Date: {ddLabel}</span>}
+            </button>
+          )
+        })}
       </div>
 
       {/* Filters */}

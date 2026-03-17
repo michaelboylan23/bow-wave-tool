@@ -21,31 +21,31 @@ function applyFilters(activities, filters) {
   )
 }
 
-export default function ActivityFilter({ activitiesA, activitiesB, fileNameA, fileNameB, onConfirm, onSkip, initialFilters = [] }) {
+// schedules: [{ fileName, rows }]
+// onConfirm: (filteredRowsArray, filterConfig) where filteredRowsArray[i] matches schedules[i]
+// onSkip: () => void
+export default function ActivityFilter({ schedules, onConfirm, onSkip, initialFilters = [] }) {
   const [addedFilters, setAddedFilters] = useState(() =>
     initialFilters.map(f => ({ ...f, selectedValues: new Set(f.selectedValues) }))
   )
-  // addedFilters: [{ column, selectedValues: Set }]
 
-  // Columns that exist in both schedules
+  // Columns that exist in ALL schedules
   const commonColumns = useMemo(() => {
-    const colsA = getColumns(activitiesA)
-    const colsB = getColumns(activitiesB)
-    return [...colsA].filter(c => colsB.has(c)).sort((a, b) => a.localeCompare(b))
-  }, [activitiesA, activitiesB])
+    if (!schedules.length) return []
+    const sets = schedules.map(s => getColumns(s.rows))
+    const first = sets[0]
+    const common = [...first].filter(col => sets.every(s => s.has(col)))
+    return common.sort((a, b) => a.localeCompare(b))
+  }, [schedules])
 
-  // Columns already added
   const addedKeys = new Set(addedFilters.map(f => f.column))
-
-  // Available columns to add (not yet added)
   const availableColumns = commonColumns.filter(c => !addedKeys.has(c))
 
   const handleAddFilter = (column) => {
     if (!column) return
-    // Values that exist in both schedules
-    const valsA = getUniqueValues(activitiesA, column)
-    const valsB = getUniqueValues(activitiesB, column)
-    const shared = new Set([...valsA].filter(v => valsB.has(v)))
+    // Values shared by ALL schedules for this column
+    const valueSets = schedules.map(s => getUniqueValues(s.rows, column))
+    const shared = new Set([...valueSets[0]].filter(v => valueSets.every(vs => vs.has(v))))
     if (!shared.size) return
     setAddedFilters(prev => [...prev, { column, selectedValues: new Set(shared) }])
   }
@@ -76,12 +76,13 @@ export default function ActivityFilter({ activitiesA, activitiesB, fileNameA, fi
     ))
   }
 
-  const filteredA = useMemo(() => applyFilters(activitiesA, addedFilters), [activitiesA, addedFilters])
-  const filteredB = useMemo(() => applyFilters(activitiesB, addedFilters), [activitiesB, addedFilters])
+  const filteredSchedules = useMemo(() =>
+    schedules.map(s => applyFilters(s.rows, addedFilters)),
+    [schedules, addedFilters]
+  )
 
   const canRun = addedFilters.every(f => f.selectedValues.size > 0)
 
-  // Serialize filterConfig for saving (convert Sets to arrays)
   const buildFilterConfig = () =>
     addedFilters.map(f => ({ column: f.column, selectedValues: [...f.selectedValues] }))
 
@@ -91,7 +92,7 @@ export default function ActivityFilter({ activitiesA, activitiesB, fileNameA, fi
         <h2 className="text-xl font-bold mb-1">Configure Filters</h2>
         <p className="text-gray-400 text-sm">
           Optionally filter which activities are included in the analysis.
-          Only columns present in both schedules are available. Skip to include all activities.
+          Only columns present in all schedules are available. Skip to include all activities.
         </p>
       </div>
 
@@ -115,9 +116,11 @@ export default function ActivityFilter({ activitiesA, activitiesB, fileNameA, fi
 
       {/* Active filters */}
       {addedFilters.map(f => {
-        const valsA = getUniqueValues(activitiesA, f.column)
-        const valsB = getUniqueValues(activitiesB, f.column)
-        const sharedVals = [...valsA].filter(v => valsB.has(v)).sort((a, b) => a.localeCompare(b))
+        // Values shared across all schedules for display
+        const valueSets = schedules.map(s => getUniqueValues(s.rows, f.column))
+        const sharedVals = [...valueSets[0]]
+          .filter(v => valueSets.every(vs => vs.has(v)))
+          .sort((a, b) => a.localeCompare(b))
 
         return (
           <div key={f.column} className="bg-gray-900 rounded-xl border border-gray-800 p-5 flex flex-col gap-3">
@@ -166,42 +169,39 @@ export default function ActivityFilter({ activitiesA, activitiesB, fileNameA, fi
         )
       })}
 
-      {/* Row count summary */}
-      <div className="bg-gray-900 rounded-xl border border-gray-800 px-5 py-4 flex flex-wrap gap-6">
-        <div className="flex flex-col gap-0.5">
-          <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">Schedule 1 — {fileNameA}</p>
-          <p className="text-white text-sm">
-            <span className="font-bold text-blue-400">{filteredA.length.toLocaleString()}</span>
-            <span className="text-gray-400"> of {activitiesA.length.toLocaleString()} activities included</span>
-          </p>
-        </div>
-        <div className="flex flex-col gap-0.5">
-          <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">Schedule 2 — {fileNameB}</p>
-          <p className="text-white text-sm">
-            <span className="font-bold text-blue-400">{filteredB.length.toLocaleString()}</span>
-            <span className="text-gray-400"> of {activitiesB.length.toLocaleString()} activities included</span>
-          </p>
-        </div>
+      {/* Row count summary — one row per schedule */}
+      <div className="bg-gray-900 rounded-xl border border-gray-800 px-5 py-4 flex flex-col gap-3">
+        {schedules.map((s, i) => (
+          <div key={i} className="flex flex-col gap-0.5">
+            <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">
+              Schedule {i + 1} — {s.fileName}
+            </p>
+            <p className="text-white text-sm">
+              <span className="font-bold text-blue-400">{filteredSchedules[i].length.toLocaleString()}</span>
+              <span className="text-gray-400"> of {s.rows.length.toLocaleString()} activities included</span>
+            </p>
+          </div>
+        ))}
       </div>
 
       {/* Buttons */}
       <div className="flex gap-3">
         <button
-          onClick={() => onConfirm(filteredA, filteredB, buildFilterConfig())}
+          onClick={() => onConfirm(filteredSchedules, buildFilterConfig())}
           disabled={!canRun}
           className={`flex-1 py-3 rounded-xl font-semibold text-sm transition-colors
             ${canRun
               ? 'bg-blue-600 hover:bg-blue-500 text-white'
               : 'bg-gray-800 text-gray-500 cursor-not-allowed'}`}
         >
-          Run Analysis
+          Confirm Filters & Continue
         </button>
         <button
           onClick={() => onSkip()}
           className="px-6 py-3 rounded-xl font-semibold text-sm bg-gray-800 hover:bg-gray-700
             text-gray-300 hover:text-white transition-colors"
         >
-          Skip & Run Analysis
+          Skip Filters
         </button>
       </div>
     </div>

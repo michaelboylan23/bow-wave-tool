@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import Header from './components/Header'
 import FileUpload from './components/FileUpload'
 import Instructions from './components/Instructions'
@@ -6,10 +6,12 @@ import ProjectInfo from './components/ProjectInfo'
 import KpiCards from './components/KpiCards'
 import ScenarioTabs from './components/ScenarioTabs'
 import BowWaveChart from './components/BowWaveChart'
-import { buildChartData } from './utils/buildChartData'
+import MultiScheduleChart from './components/MultiScheduleChart'
+import BowWaveMagnitudeChart from './components/BowWaveMagnitudeChart'
+import SCurveChart from './components/SCurveChart'
+import { buildChartData, buildMultiSeriesData, buildBowWaveMagnitudeData, buildSCurveData, buildChartDataByCategory } from './utils/buildChartData'
 import { calcBowWave } from './utils/bowWaveCalc'
 import ScheduleData from './components/ScheduleData'
-import ActivityFilter from './components/ActivityFilter'
 import FilterBar from './components/FilterBar'
 import {
   EXAMPLE_SCHEDULE_A, EXAMPLE_SCHEDULE_B,
@@ -17,38 +19,79 @@ import {
   EXAMPLE_PROJECT_NAME, EXAMPLE_PROJECT_NUMBER,
 } from './data/exampleProject'
 
+const CORE_COLUMNS = new Set(['start_date', 'end_date', 'target_drtn_hr_cnt', 'complete_pct', 'activity_id', 'activity_name'])
+
+const genId = () => `sched_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+
+// ─── Apply filter config to a row array ──────────────────────────────────────
+function applyFilterConfig(activities, fc) {
+  if (!fc || !fc.length) return activities
+  return activities.filter(a =>
+    fc.every(f => f.selectedValues.includes(String(a[f.column] ?? '')))
+  )
+}
+
 export default function App() {
-  const [projectName, setProjectName]       = useState('')
-  const [projectNumber, setProjectNumber]   = useState('')
-  const [activeTab, setActiveTab]           = useState('Analysis')
-  const [bowWaveResult, setBowWaveResult]   = useState(null)
-  const [schedules, setSchedules]           = useState(null)
-  const [scheduleInfo, setScheduleInfo]     = useState(null)
-  const [unit, setUnit]                     = useState('hrs')
-  const [baseSchedule, setBaseSchedule]     = useState('B')
+  // ── Session data ────────────────────────────────────────────────────────────
+  // Each schedule: { id, fileName, dataDate, rawRows, filteredRows }
+  const [uploadedSchedules, setUploadedSchedules] = useState([])
+  const [filterConfig, setFilterConfig]           = useState([])
+
+  // ── Project info ────────────────────────────────────────────────────────────
+  const [projectName,   setProjectName]   = useState('')
+  const [projectNumber, setProjectNumber] = useState('')
+
+  // ── Analysis mode ───────────────────────────────────────────────────────────
+  const [analysisMode, setAnalysisMode] = useState('two-schedule')
+
+  // ── Two-schedule analysis state ─────────────────────────────────────────────
+  const [selectedPair,  setSelectedPair]  = useState([null, null]) // [idA, idB]
+  const [bowWaveResult, setBowWaveResult] = useState(null)
+  const [twoSchedInfo,  setTwoSchedInfo]  = useState(null)
+  // { earlyId, lateId, earlyFile, lateFile, earlyDate, lateDate }
+
+  // ── Multi-schedule state ────────────────────────────────────────────────────
+  const [baselineId, setBaselineId] = useState(null)
+
+  // Category grouping (two-schedule chart)
+  const [groupByColumn, setGroupByColumn] = useState(null)
+
+  // Track whether multi-schedule analysis has been run
+  const [multiScheduleRun, setMultiScheduleRun] = useState(false)
+
+  // ── Display settings ────────────────────────────────────────────────────────
+  const [unit,           setUnit]           = useState('hrs')
+  const [baseSchedule,   setBaseSchedule]   = useState('B')
   const [scenarioConfig, setScenarioConfig] = useState({
-    scenario: 'front-load',
-    endDateOverride: '',
-    recoveryDate: '',
+    scenario: 'front-load', endDateOverride: '', recoveryDate: '',
   })
-  const [confirmingNew, setConfirmingNew]         = useState(false)
+
+  // ── UI state ────────────────────────────────────────────────────────────────
+  const [activeTab,           setActiveTab]           = useState('Analysis')
+  const [confirmingNew,       setConfirmingNew]       = useState(false)
   const [confirmingOverwrite, setConfirmingOverwrite] = useState(false)
-  const [pendingResult, setPendingResult]         = useState(null)
-  const [editingDates, setEditingDates]   = useState(false)
+  const [pendingUpload,       setPendingUpload]       = useState(null)
+  // Edit data dates modal (two-schedule mode)
+  const [editingDates,  setEditingDates]  = useState(false)
   const [editEarlyDate, setEditEarlyDate] = useState('')
-  const [editLateDate, setEditLateDate]   = useState('')
+  const [editLateDate,  setEditLateDate]  = useState('')
   const [editEarlyFile, setEditEarlyFile] = useState('')
-  const [editLateFile, setEditLateFile]   = useState('')
-  const [filterConfig, setFilterConfig]   = useState([])
-  const [rawSchedules, setRawSchedules]   = useState(null)
+  const [editLateFile,  setEditLateFile]  = useState('')
 
-  const hasAnalysis = !!bowWaveResult
-  const hasProject  = projectName.trim() && projectNumber.trim()
+  // ── Derived ─────────────────────────────────────────────────────────────────
+  const hasSchedules      = uploadedSchedules.length >= 2
+  const hasTwoSchedResult = !!bowWaveResult && !!twoSchedInfo
+  const hasMultiResult    = multiScheduleRun && hasSchedules
+  const hasAnalysis       = hasTwoSchedResult || hasMultiResult
+  const hasProject        = projectName.trim() && projectNumber.trim()
 
-  const chartData = bowWaveResult && schedules
+  const earlySchedule = uploadedSchedules.find(s => s.id === twoSchedInfo?.earlyId)
+  const lateSchedule  = uploadedSchedules.find(s => s.id === twoSchedInfo?.lateId)
+
+  const chartData = hasTwoSchedResult && earlySchedule && lateSchedule
     ? buildChartData(
-        schedules.early,
-        schedules.late,
+        earlySchedule.filteredRows,
+        lateSchedule.filteredRows,
         bowWaveResult,
         scenarioConfig.scenario,
         scenarioConfig.endDateOverride,
@@ -57,51 +100,202 @@ export default function App() {
       )
     : null
 
-  const applyResult = (result, early, late, info, fc = [], rawEarly = null, rawLate = null) => {
-    setBowWaveResult(result)
-    setSchedules({ early, late })
-    setScheduleInfo(info)
+  const multiSeriesData = useMemo(() =>
+    analysisMode === 'multi-schedule' && hasSchedules
+      ? buildMultiSeriesData(uploadedSchedules, baselineId)
+      : null,
+    [uploadedSchedules, analysisMode, hasSchedules, baselineId]
+  )
+
+  const bowWaveMagnitudeData = useMemo(() =>
+    analysisMode === 'multi-schedule' && hasSchedules
+      ? buildBowWaveMagnitudeData(uploadedSchedules)
+      : null,
+    [uploadedSchedules, analysisMode, hasSchedules]
+  )
+
+  const sCurveData = useMemo(() =>
+    analysisMode === 'multi-schedule' && hasSchedules
+      ? buildSCurveData(uploadedSchedules)
+      : null,
+    [uploadedSchedules, analysisMode, hasSchedules]
+  )
+
+  const categoryChartData = useMemo(() => {
+    if (!groupByColumn || !hasTwoSchedResult || !earlySchedule || !lateSchedule) return null
+    return buildChartDataByCategory(
+      earlySchedule.filteredRows,
+      lateSchedule.filteredRows,
+      bowWaveResult,
+      scenarioConfig.scenario,
+      scenarioConfig.endDateOverride,
+      scenarioConfig.recoveryDate,
+      baseSchedule,
+      groupByColumn,
+    )
+  }, [groupByColumn, hasTwoSchedResult, earlySchedule, lateSchedule, bowWaveResult, scenarioConfig, baseSchedule])
+
+  // Columns available for filtering/grouping (all non-core fields from schedule data)
+  const availableFilterColumns = useMemo(() => {
+    const row = uploadedSchedules[0]?.rawRows[0]
+    if (!row) return []
+    return Object.keys(row).filter(k => !CORE_COLUMNS.has(k)).sort()
+  }, [uploadedSchedules])
+
+  // ── Schedule upload callback ────────────────────────────────────────────────
+  const applyUpload = (schedules, fc) => {
+    setUploadedSchedules(schedules)
     setFilterConfig(fc)
-    if (rawEarly && rawLate) setRawSchedules({ early: rawEarly, late: rawLate })
-    setActiveTab('Results')
+    // Reset analysis results
+    setBowWaveResult(null)
+    setTwoSchedInfo(null)
+    setGroupByColumn(null)
+    setMultiScheduleRun(false)
+    // Pre-select first two schedules as the default pair
+    if (schedules.length >= 2) {
+      setSelectedPair([schedules[0].id, schedules[schedules.length - 1].id])
+    }
+    setActiveTab('Analysis')
   }
 
-  const handleResult = (result, early, late, info, fc = [], rawEarly = null, rawLate = null) => {
-    if (hasAnalysis) {
-      setPendingResult({ result, early, late, info, fc, rawEarly, rawLate })
+  const handleSchedulesReady = (schedules, fc) => {
+    if (hasSchedules) {
+      setPendingUpload({ schedules, fc })
       setConfirmingOverwrite(true)
     } else {
-      applyResult(result, early, late, info, fc, rawEarly, rawLate)
+      applyUpload(schedules, fc)
     }
   }
 
   const confirmOverwrite = () => {
-    if (pendingResult) {
-      const { result, early, late, info, fc, rawEarly, rawLate } = pendingResult
-      applyResult(result, early, late, info, fc, rawEarly, rawLate)
-      setPendingResult(null)
+    if (pendingUpload) {
+      applyUpload(pendingUpload.schedules, pendingUpload.fc)
+      setPendingUpload(null)
     }
     setConfirmingOverwrite(false)
   }
 
+  // ── Two-schedule analysis ───────────────────────────────────────────────────
+  const runTwoScheduleAnalysis = () => {
+    const [idA, idB] = selectedPair
+    if (!idA || !idB || idA === idB) return
+    const sA = uploadedSchedules.find(s => s.id === idA)
+    const sB = uploadedSchedules.find(s => s.id === idB)
+    if (!sA || !sB) return
+
+    const dA = new Date(sA.dataDate)
+    const dB = new Date(sB.dataDate)
+    const [early, late] = dA <= dB ? [sA, sB] : [sB, sA]
+
+    try {
+      const result = calcBowWave(early.filteredRows, late.filteredRows, early.dataDate, late.dataDate)
+      setBowWaveResult(result)
+      setTwoSchedInfo({
+        earlyId:   early.id,   lateId:   late.id,
+        earlyFile: early.fileName, lateFile: late.fileName,
+        earlyDate: early.dataDate, lateDate: late.dataDate,
+      })
+      setAnalysisMode('two-schedule')
+      setActiveTab('Bow Wave')
+    } catch (err) {
+      alert('Analysis failed: ' + err.message)
+    }
+  }
+
+  // ── Multi-schedule analysis ─────────────────────────────────────────────────
+  const runMultiScheduleAnalysis = () => {
+    setAnalysisMode('multi-schedule')
+    setMultiScheduleRun(true)
+    setActiveTab('Trend')
+  }
+
+  // ── Edit data dates (two-schedule mode) ────────────────────────────────────
+  const openDateModal = () => {
+    setEditEarlyDate(twoSchedInfo?.earlyDate?.toString().slice(0, 10) ?? '')
+    setEditLateDate(twoSchedInfo?.lateDate?.toString().slice(0, 10)   ?? '')
+    setEditEarlyFile(twoSchedInfo?.earlyFile ?? '')
+    setEditLateFile(twoSchedInfo?.lateFile   ?? '')
+    setEditingDates(true)
+  }
+
+  const handleDateEdit = () => {
+    const earlyActivities = editEarlyFile === twoSchedInfo.earlyFile
+      ? earlySchedule?.filteredRows
+      : lateSchedule?.filteredRows
+    const lateActivities = editEarlyFile === twoSchedInfo.earlyFile
+      ? lateSchedule?.filteredRows
+      : earlySchedule?.filteredRows
+    if (!earlyActivities || !lateActivities) return
+    try {
+      const result = calcBowWave(earlyActivities, lateActivities, editEarlyDate, editLateDate)
+      setBowWaveResult(result)
+      setTwoSchedInfo(prev => ({
+        ...prev,
+        earlyFile: editEarlyFile, lateFile: editLateFile,
+        earlyDate: editEarlyDate, lateDate: editLateDate,
+      }))
+    } catch {}
+    setEditingDates(false)
+  }
+
+  // ── Schedule list management ────────────────────────────────────────────────
+  const deleteSchedule = (id) => {
+    setUploadedSchedules(prev => prev.filter(s => s.id !== id))
+    setSelectedPair(prev => prev.map(p => p === id ? null : p))
+    if (baselineId === id) setBaselineId(null)
+    if (twoSchedInfo?.earlyId === id || twoSchedInfo?.lateId === id) {
+      setBowWaveResult(null)
+      setTwoSchedInfo(null)
+    }
+  }
+
+  const moveSchedule = (id, dir) => {
+    setUploadedSchedules(prev => {
+      const idx = prev.findIndex(s => s.id === id)
+      if (idx < 0) return prev
+      const next = [...prev]
+      const swap = idx + dir
+      if (swap < 0 || swap >= next.length) return prev
+      ;[next[idx], next[swap]] = [next[swap], next[idx]]
+      return next
+    })
+  }
+
+  // ── New Project ─────────────────────────────────────────────────────────────
+  const confirmNew = () => {
+    setProjectName('')
+    setProjectNumber('')
+    setUploadedSchedules([])
+    setFilterConfig([])
+    setBowWaveResult(null)
+    setTwoSchedInfo(null)
+    setSelectedPair([null, null])
+    setBaselineId(null)
+    setAnalysisMode('two-schedule')
+    setActiveTab('Analysis')
+    setScenarioConfig({ scenario: 'front-load', endDateOverride: '', recoveryDate: '' })
+    setUnit('hrs')
+    setBaseSchedule('B')
+    setGroupByColumn(null)
+    setMultiScheduleRun(false)
+    setConfirmingNew(false)
+  }
+
+  // ── Save / Load ─────────────────────────────────────────────────────────────
   const handleSave = () => {
     const payload = {
-      projectName,
-      projectNumber,
+      version: 2,
+      projectName, projectNumber,
+      uploadedSchedules,
+      filterConfig,
+      analysisMode,
+      selectedPair,
       bowWaveResult,
-      scheduleInfo,
+      twoSchedInfo,
+      baselineId,
       scenarioConfig,
       unit,
       baseSchedule,
-      schedules: {
-        early: schedules.early,
-        late:  schedules.late,
-      },
-      filterConfig,
-      rawSchedules: {
-        early: rawSchedules?.early,
-        late:  rawSchedules?.late,
-      },
       savedAt: new Date().toISOString(),
     }
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
@@ -121,131 +315,166 @@ export default function App() {
       try {
         const payload = JSON.parse(ev.target.result)
 
-        // Rehydrate date strings into Date objects for schedule arrays
-        const rehydrate = (activities) =>
-          (activities || []).map(a => ({
+        const rehydrateRows = (rows) =>
+          (rows || []).map(a => ({
             ...a,
             start_date: a.start_date ? new Date(a.start_date) : null,
             end_date:   a.end_date   ? new Date(a.end_date)   : null,
           }))
 
-        // Rehydrate bowWaveResult dates
-        if (payload.bowWaveResult) {
-          payload.bowWaveResult.windowStart = new Date(payload.bowWaveResult.windowStart)
-          payload.bowWaveResult.windowEnd   = new Date(payload.bowWaveResult.windowEnd)
-        }
+        // ── v2 format ──
+        if (payload.version === 2) {
+          const schedules = (payload.uploadedSchedules || []).map(s => ({
+            ...s,
+            rawRows:      rehydrateRows(s.rawRows),
+            filteredRows: rehydrateRows(s.filteredRows),
+          }))
 
-        setProjectName(payload.projectName   || '')
-        setProjectNumber(payload.projectNumber || '')
-        setBowWaveResult(payload.bowWaveResult || null)
-        setScheduleInfo(payload.scheduleInfo   || null)
-        setScenarioConfig(payload.scenarioConfig || { scenario: 'front-load', endDateOverride: '', recoveryDate: '' })
-        setUnit(payload.unit               || 'hrs')
-        setBaseSchedule(payload.baseSchedule   || 'B')
-        setFilterConfig(payload.filterConfig   || [])
-        setRawSchedules(payload.rawSchedules ? {
-          early: rehydrate(payload.rawSchedules.early),
-          late:  rehydrate(payload.rawSchedules.late),
-        } : null)
-        setSchedules({
-          early: rehydrate(payload.schedules?.early),
-          late:  rehydrate(payload.schedules?.late),
-        })
-        setActiveTab('Results')
+          if (payload.bowWaveResult) {
+            payload.bowWaveResult.windowStart = new Date(payload.bowWaveResult.windowStart)
+            payload.bowWaveResult.windowEnd   = new Date(payload.bowWaveResult.windowEnd)
+          }
+
+          setProjectName(payload.projectName   || '')
+          setProjectNumber(payload.projectNumber || '')
+          setUploadedSchedules(schedules)
+          setFilterConfig(payload.filterConfig   || [])
+          setAnalysisMode(payload.analysisMode   || 'two-schedule')
+          setSelectedPair(payload.selectedPair   || [null, null])
+          setBowWaveResult(payload.bowWaveResult || null)
+          setTwoSchedInfo(payload.twoSchedInfo   || null)
+          setBaselineId(payload.baselineId       || null)
+          setScenarioConfig(payload.scenarioConfig || { scenario: 'front-load', endDateOverride: '', recoveryDate: '' })
+          setUnit(payload.unit         || 'hrs')
+          setBaseSchedule(payload.baseSchedule || 'B')
+          setMultiScheduleRun(payload.analysisMode === 'multi-schedule')
+          setGroupByColumn(null)
+          setActiveTab(payload.bowWaveResult ? 'Bow Wave' : 'Trend')
+
+        // ── v1 migration ──
+        } else {
+          const earlyRows = rehydrateRows(payload.schedules?.early)
+          const lateRows  = rehydrateRows(payload.schedules?.late)
+          const earlyRaw  = rehydrateRows(payload.rawSchedules?.early || payload.schedules?.early)
+          const lateRaw   = rehydrateRows(payload.rawSchedules?.late  || payload.schedules?.late)
+
+          const idA = genId(), idB = genId()
+          const migrated = [
+            { id: idA, fileName: payload.scheduleInfo?.earlyFile || 'Schedule 1',
+              dataDate: payload.scheduleInfo?.earlyDate || '', rawRows: earlyRaw, filteredRows: earlyRows },
+            { id: idB, fileName: payload.scheduleInfo?.lateFile  || 'Schedule 2',
+              dataDate: payload.scheduleInfo?.lateDate  || '', rawRows: lateRaw,  filteredRows: lateRows  },
+          ]
+
+          if (payload.bowWaveResult) {
+            payload.bowWaveResult.windowStart = new Date(payload.bowWaveResult.windowStart)
+            payload.bowWaveResult.windowEnd   = new Date(payload.bowWaveResult.windowEnd)
+          }
+
+          setProjectName(payload.projectName   || '')
+          setProjectNumber(payload.projectNumber || '')
+          setUploadedSchedules(migrated)
+          setFilterConfig(payload.filterConfig   || [])
+          setAnalysisMode('two-schedule')
+          setSelectedPair([idA, idB])
+          setBowWaveResult(payload.bowWaveResult || null)
+          setTwoSchedInfo(payload.scheduleInfo ? {
+            earlyId: idA, lateId: idB,
+            earlyFile: payload.scheduleInfo.earlyFile, lateFile: payload.scheduleInfo.lateFile,
+            earlyDate: payload.scheduleInfo.earlyDate, lateDate: payload.scheduleInfo.lateDate,
+          } : null)
+          setBaselineId(null)
+          setScenarioConfig(payload.scenarioConfig || { scenario: 'front-load', endDateOverride: '', recoveryDate: '' })
+          setUnit(payload.unit         || 'hrs')
+          setBaseSchedule(payload.baseSchedule || 'B')
+          setMultiScheduleRun(false)
+          setGroupByColumn(null)
+          setActiveTab('Bow Wave')
+        }
       } catch (err) {
         alert('Failed to load project file. Please make sure it is a valid .bwt file.')
       }
     }
     reader.readAsText(file)
-    // Reset input so same file can be loaded again if needed
     e.target.value = ''
   }
 
-  const handleNewProject = () => setConfirmingNew(true)
-
-  const confirmNew = () => {
-    setProjectName('')
-    setProjectNumber('')
-    setBowWaveResult(null)
-    setSchedules(null)
-    setScheduleInfo(null)
-    setActiveTab('Analysis')
-    setScenarioConfig({ scenario: 'front-load', endDateOverride: '', recoveryDate: '' })
-    setUnit('hrs')
-    setBaseSchedule('B')
-    setFilterConfig([])
-    setRawSchedules(null)
-    setConfirmingNew(false)
-  }
-
+  // ── Example project ─────────────────────────────────────────────────────────
   const loadExample = () => {
     const result = calcBowWave(
-      EXAMPLE_SCHEDULE_A,
-      EXAMPLE_SCHEDULE_B,
-      EXAMPLE_DATA_DATE_A,
-      EXAMPLE_DATA_DATE_B,
+      EXAMPLE_SCHEDULE_A, EXAMPLE_SCHEDULE_B,
+      EXAMPLE_DATA_DATE_A, EXAMPLE_DATA_DATE_B,
     )
+    const idA = 'example_a', idB = 'example_b'
+    const schedules = [
+      { id: idA, fileName: 'example-schedule-1.xlsx', dataDate: EXAMPLE_DATA_DATE_A,
+        rawRows: EXAMPLE_SCHEDULE_A, filteredRows: EXAMPLE_SCHEDULE_A },
+      { id: idB, fileName: 'example-schedule-2.xlsx', dataDate: EXAMPLE_DATA_DATE_B,
+        rawRows: EXAMPLE_SCHEDULE_B, filteredRows: EXAMPLE_SCHEDULE_B },
+    ]
     setProjectName(EXAMPLE_PROJECT_NAME)
     setProjectNumber(EXAMPLE_PROJECT_NUMBER)
-    applyResult(result, EXAMPLE_SCHEDULE_A, EXAMPLE_SCHEDULE_B, {
-      earlyFile: 'example-schedule-1.xlsx',
-      lateFile:  'example-schedule-2.xlsx',
-      earlyDate: EXAMPLE_DATA_DATE_A,
-      lateDate:  EXAMPLE_DATA_DATE_B,
+    setUploadedSchedules(schedules)
+    setFilterConfig([])
+    setAnalysisMode('two-schedule')
+    setSelectedPair([idA, idB])
+    setBowWaveResult(result)
+    setTwoSchedInfo({
+      earlyId: idA, lateId: idB,
+      earlyFile: 'example-schedule-1.xlsx', lateFile: 'example-schedule-2.xlsx',
+      earlyDate: EXAMPLE_DATA_DATE_A, lateDate: EXAMPLE_DATA_DATE_B,
     })
+    setBaselineId(null)
+    setMultiScheduleRun(false)
+    setActiveTab('Bow Wave')
   }
 
   const formatDate = (str) => {
     if (!str) return ''
-    const d = new Date(str)
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    return new Date(str).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  }
+
+  // ── FilterBar re-filter handler (two-schedule mode) ─────────────────────────
+  const handleReFilter = (newConfig) => {
+    const newSchedules = uploadedSchedules.map(s => ({
+      ...s,
+      filteredRows: applyFilterConfig(s.rawRows, newConfig),
+    }))
+    setUploadedSchedules(newSchedules)
+    setFilterConfig(newConfig)
+    // Recalculate two-schedule analysis if active
+    if (bowWaveResult && twoSchedInfo) {
+      const newEarly = newSchedules.find(s => s.id === twoSchedInfo.earlyId)
+      const newLate  = newSchedules.find(s => s.id === twoSchedInfo.lateId)
+      if (newEarly && newLate) {
+        try {
+          const result = calcBowWave(newEarly.filteredRows, newLate.filteredRows, twoSchedInfo.earlyDate, twoSchedInfo.lateDate)
+          setBowWaveResult(result)
+        } catch {}
+      }
+    }
+  }
+
+  const addFilterColumn = (column) => {
+    if (!column || filterConfig.some(f => f.column === column)) return
+    const allValues = [...new Set(
+      uploadedSchedules.flatMap(s => s.rawRows.map(a => String(a[column] ?? '')).filter(Boolean))
+    )].sort()
+    handleReFilter([...filterConfig, { column, selectedValues: allValues }])
+  }
+
+  const removeFilterColumn = (column) => {
+    handleReFilter(filterConfig.filter(f => f.column !== column))
   }
 
   const TABS = [
-    { key: 'Instructions', label: 'Instructions', always: true },
-    { key: 'Analysis',     label: 'Analysis',     always: true },
-    { key: 'Results',      label: 'Results',       always: false },
-    { key: 'Schedule Data', label: 'Schedule Data', always: false },
-    { key: 'Example',      label: 'Example Project', always: true },
+    { key: 'Instructions',  label: 'Instructions',          show: true },
+    { key: 'Analysis',      label: 'Analysis',              show: true },
+    { key: 'Bow Wave',      label: 'Two-Schedule Bow Wave', show: hasTwoSchedResult },
+    { key: 'Trend',         label: 'Multi-Schedule Trend',  show: hasMultiResult },
+    { key: 'Schedule Data', label: 'Schedule Data',         show: hasAnalysis },
+    { key: 'Example',       label: 'Example Project',       show: true },
   ]
-
-  const handleDateEdit = (newEarlyStr, newLateStr) => {
-  const newEarly = new Date(newEarlyStr)
-  const newLate  = new Date(newLateStr)
-  if (isNaN(newEarly) || isNaN(newLate)) return
-  if (newEarly >= newLate) return
-
-  const swap = newEarly > newLate // always false here but kept for clarity
-
-  // Determine if we need to swap based on original assignment
-  const earlyFirst = newEarlyStr <= newLateStr
-
-  const [early, late, eFile, lFile, eDate, lDate] = earlyFirst
-    ? [schedules.early, schedules.late, scheduleInfo.earlyFile, scheduleInfo.lateFile, newEarlyStr, newLateStr]
-    : [schedules.late, schedules.early, scheduleInfo.lateFile, scheduleInfo.earlyFile, newLateStr, newEarlyStr]
-
-  try {
-    const result = calcBowWave(early, late, eDate, lDate)
-    setBowWaveResult(result)
-    setSchedules({ early, late })
-    setScheduleInfo({
-      earlyFile: eFile,
-      lateFile:  lFile,
-      earlyDate: eDate,
-      lateDate:  lDate,
-    })
-  } catch (err) {
-    // Invalid window — silently ignore, leave results intact
-  }
-}
-
-  const openDateModal = () => {
-    setEditEarlyDate(scheduleInfo.earlyDate?.toString().slice(0, 10) ?? '')
-    setEditLateDate(scheduleInfo.lateDate?.toString().slice(0, 10)  ?? '')
-    setEditEarlyFile(scheduleInfo.earlyFile)
-    setEditLateFile(scheduleInfo.lateFile)
-    setEditingDates(true)
-  }
 
   return (
     <div className="min-h-screen bg-gray-950 text-white flex flex-col">
@@ -257,15 +486,15 @@ export default function App() {
         onProjectNumberChange={setProjectNumber}
         hasAnalysis={hasAnalysis}
         onSave={handleSave}
-        onNewProject={handleNewProject}
+        onNewProject={() => setConfirmingNew(true)}
       />
 
-      {/* Confirm New Project */}
+      {/* ── Confirm New Project ── */}
       {confirmingNew && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
           <div className="bg-gray-900 border border-gray-700 rounded-2xl p-8 max-w-sm w-full mx-4 flex flex-col gap-4">
             <h2 className="text-white font-bold text-lg">Start New Project?</h2>
-            <p className="text-gray-400 text-sm">All unsaved analysis data will be cleared. This cannot be undone.</p>
+            <p className="text-gray-400 text-sm">All unsaved analysis data will be cleared.</p>
             <div className="flex gap-3">
               <button onClick={confirmNew}
                 className="flex-1 bg-red-600 hover:bg-red-500 text-white font-semibold py-2 rounded-lg text-sm transition-colors">
@@ -280,18 +509,20 @@ export default function App() {
         </div>
       )}
 
-      {/* Confirm Overwrite */}
+      {/* ── Confirm Overwrite ── */}
       {confirmingOverwrite && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
           <div className="bg-gray-900 border border-gray-700 rounded-2xl p-8 max-w-sm w-full mx-4 flex flex-col gap-4">
-            <h2 className="text-white font-bold text-lg">Replace Current Results?</h2>
-            <p className="text-gray-400 text-sm">Running a new analysis will replace your current results. Any unsaved data will be lost.</p>
+            <h2 className="text-white font-bold text-lg">Replace Uploaded Schedules?</h2>
+            <p className="text-gray-400 text-sm">
+              This will replace all currently uploaded schedules and clear any existing analysis results.
+            </p>
             <div className="flex gap-3">
               <button onClick={confirmOverwrite}
                 className="flex-1 bg-orange-600 hover:bg-orange-500 text-white font-semibold py-2 rounded-lg text-sm transition-colors">
                 Yes, Replace
               </button>
-              <button onClick={() => { setConfirmingOverwrite(false); setPendingResult(null) }}
+              <button onClick={() => { setConfirmingOverwrite(false); setPendingUpload(null) }}
                 className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold py-2 rounded-lg text-sm transition-colors">
                 Cancel
               </button>
@@ -300,7 +531,7 @@ export default function App() {
         </div>
       )}
 
-      {/* Edit Data Dates Modal */}
+      {/* ── Edit Data Dates Modal (two-schedule mode) ── */}
       {editingDates && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
           <div className="bg-gray-900 border border-gray-700 rounded-2xl p-8 max-w-sm w-full mx-4 flex flex-col gap-6">
@@ -310,23 +541,16 @@ export default function App() {
                 <label className="text-xs text-gray-400 font-medium uppercase tracking-wide">
                   Schedule 1 — {editEarlyFile}
                 </label>
-                <input
-                  type="date"
-                  value={editEarlyDate}
-                  onChange={e => setEditEarlyDate(e.target.value)}
+                <input type="date" value={editEarlyDate} onChange={e => setEditEarlyDate(e.target.value)}
                   className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm
-                    focus:outline-none focus:border-blue-500 transition-colors"
-                />
+                    focus:outline-none focus:border-blue-500 transition-colors" />
               </div>
               <div className="flex items-center justify-center">
                 <button
                   onClick={() => {
-                    const tmpDate = editEarlyDate
-                    const tmpFile = editEarlyFile
-                    setEditEarlyDate(editLateDate)
-                    setEditEarlyFile(editLateFile)
-                    setEditLateDate(tmpDate)
-                    setEditLateFile(tmpFile)
+                    const td = editEarlyDate, tf = editEarlyFile
+                    setEditEarlyDate(editLateDate); setEditEarlyFile(editLateFile)
+                    setEditLateDate(td);  setEditLateFile(tf)
                   }}
                   className="text-xs text-gray-500 hover:text-white bg-gray-800 hover:bg-gray-700
                     border border-gray-700 hover:border-gray-500 px-3 py-1.5 rounded-lg transition-colors"
@@ -338,13 +562,9 @@ export default function App() {
                 <label className="text-xs text-gray-400 font-medium uppercase tracking-wide">
                   Schedule 2 — {editLateFile}
                 </label>
-                <input
-                  type="date"
-                  value={editLateDate}
-                  onChange={e => setEditLateDate(e.target.value)}
+                <input type="date" value={editLateDate} onChange={e => setEditLateDate(e.target.value)}
                   className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm
-                    focus:outline-none focus:border-blue-500 transition-colors"
-                />
+                    focus:outline-none focus:border-blue-500 transition-colors" />
               </div>
               {editEarlyDate && editLateDate && editEarlyDate >= editLateDate && (
                 <p className="text-red-400 text-xs">Schedule 1 date must be earlier than Schedule 2 date.</p>
@@ -353,31 +573,14 @@ export default function App() {
             <div className="flex gap-3">
               <button
                 disabled={!editEarlyDate || !editLateDate || editEarlyDate >= editLateDate}
-                onClick={() => {
-                  const earlyActivities = editEarlyFile === scheduleInfo.earlyFile ? schedules.early : schedules.late
-                  const lateActivities  = editEarlyFile === scheduleInfo.earlyFile ? schedules.late  : schedules.early
-                  try {
-                    const result = calcBowWave(earlyActivities, lateActivities, editEarlyDate, editLateDate)
-                    setBowWaveResult(result)
-                    setSchedules({ early: earlyActivities, late: lateActivities })
-                    setScheduleInfo({
-                      earlyFile: editEarlyFile,
-                      lateFile:  editLateFile,
-                      earlyDate: editEarlyDate,
-                      lateDate:  editLateDate,
-                    })
-                  } catch (err) {}
-                  setEditingDates(false)
-                }}
+                onClick={handleDateEdit}
                 className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2 rounded-lg text-sm
-                  transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-blue-600"
+                  transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Reanalyze
               </button>
-              <button
-                onClick={() => setEditingDates(false)}
-                className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold py-2 rounded-lg text-sm transition-colors"
-              >
+              <button onClick={() => setEditingDates(false)}
+                className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold py-2 rounded-lg text-sm transition-colors">
                 Cancel
               </button>
             </div>
@@ -388,9 +591,9 @@ export default function App() {
       <main className="flex-1 px-8 py-8">
         <div className="max-w-6xl mx-auto flex flex-col gap-8">
 
-          {/* Tab Bar */}
+          {/* ── Tab Bar ── */}
           <div className="flex gap-2 border-b border-gray-800">
-            {TABS.filter(t => t.always || hasAnalysis).map(tab => (
+            {TABS.filter(t => t.show).map(tab => (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
@@ -406,29 +609,27 @@ export default function App() {
             ))}
           </div>
 
-          {/* Instructions */}
+          {/* ── Instructions ── */}
           {activeTab === 'Instructions' && <Instructions />}
 
-          {/* Example */}
+          {/* ── Example ── */}
           {activeTab === 'Example' && (
             <div className="flex flex-col gap-4 max-w-sm">
               <p className="text-gray-400 text-sm">
                 Load a pre-built example project to explore the tool without uploading real schedule files.
               </p>
-              <button
-                onClick={loadExample}
-                className="bg-green-700 hover:bg-green-600 text-white font-semibold py-3 rounded-xl transition-colors text-sm"
-              >
+              <button onClick={loadExample}
+                className="bg-green-700 hover:bg-green-600 text-white font-semibold py-3 rounded-xl transition-colors text-sm">
                 ⚡ Load Example Project
               </button>
             </div>
           )}
 
-          {/* Analysis */}
+          {/* ── Analysis Tab ── */}
           {activeTab === 'Analysis' && (
-            <div className="flex flex-col gap-6">
+            <div className="flex flex-col gap-8">
 
-              {/* Load Existing Project */}
+              {/* Load existing project */}
               <div className="max-w-3xl bg-gray-900 rounded-xl p-5 flex items-center justify-between gap-4">
                 <div>
                   <p className="text-white text-sm font-medium">Load Existing Project</p>
@@ -453,31 +654,194 @@ export default function App() {
                 onProjectNameChange={setProjectName}
                 onProjectNumberChange={setProjectNumber}
               />
-              {hasProject ? (
-                <FileUpload onResult={handleResult} />
-              ) : (
-                <p className="text-gray-500 text-sm">Enter a project name and number above to begin.</p>
-              )}
 
+              {!hasProject ? (
+                <p className="text-gray-500 text-sm">Enter a project name and number above to begin.</p>
+              ) : (
+                <>
+                  {/* ── Upload section ── */}
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">
+                        {hasSchedules ? `Uploaded Schedules (${uploadedSchedules.length})` : 'Upload Schedules'}
+                      </p>
+                    </div>
+                    <FileUpload onSchedulesReady={handleSchedulesReady} />
+                  </div>
+
+                  {/* ── Analysis configuration — only shown once schedules are loaded ── */}
+                  {hasSchedules && (
+                    <div className="flex flex-col gap-6 max-w-3xl">
+
+                      {/* Divider */}
+                      <div className="h-px bg-gray-800" />
+
+                      {/* Loaded schedules summary */}
+                      <div className="flex flex-col gap-2">
+                        <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">Loaded Schedules</p>
+                        <div className="flex flex-col gap-1.5">
+                          {uploadedSchedules.map((s, i) => (
+                            <div key={s.id}
+                              className="flex items-center gap-3 bg-gray-900 rounded-lg px-4 py-2.5">
+                              {/* Reorder buttons */}
+                              <div className="flex flex-col gap-0.5 shrink-0">
+                                <button
+                                  onClick={() => moveSchedule(s.id, -1)}
+                                  disabled={i === 0}
+                                  className="text-gray-600 hover:text-white disabled:opacity-20 disabled:cursor-default
+                                    leading-none text-xs px-0.5 transition-colors"
+                                  title="Move up"
+                                >▲</button>
+                                <button
+                                  onClick={() => moveSchedule(s.id, 1)}
+                                  disabled={i === uploadedSchedules.length - 1}
+                                  className="text-gray-600 hover:text-white disabled:opacity-20 disabled:cursor-default
+                                    leading-none text-xs px-0.5 transition-colors"
+                                  title="Move down"
+                                >▼</button>
+                              </div>
+                              <span className="text-xs text-gray-600 w-4">{i + 1}</span>
+                              <span className="text-white text-sm flex-1 truncate">{s.fileName}</span>
+                              <span className="text-gray-400 text-xs shrink-0">
+                                Data Date: {formatDate(s.dataDate)}
+                              </span>
+                              <span className="text-blue-400 text-xs shrink-0">
+                                {s.filteredRows.length.toLocaleString()} activities
+                              </span>
+                              {/* Delete button */}
+                              <button
+                                onClick={() => deleteSchedule(s.id)}
+                                className="text-gray-600 hover:text-red-400 transition-colors text-xs shrink-0 ml-1"
+                                title="Remove schedule"
+                              >✕</button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Analysis mode toggle */}
+                      <div className="flex flex-col gap-3">
+                        <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">Analysis Type</p>
+                        <div className="flex gap-2 bg-gray-900 rounded-xl p-1 w-fit">
+                          {[
+                            { key: 'two-schedule',   label: 'Two-Schedule Bow Wave' },
+                            { key: 'multi-schedule', label: 'Multi-Schedule Trend'  },
+                          ].map(opt => (
+                            <button
+                              key={opt.key}
+                              onClick={() => setAnalysisMode(opt.key)}
+                              className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors
+                                ${analysisMode === opt.key
+                                  ? 'bg-blue-600 text-white'
+                                  : 'text-gray-400 hover:text-white'}`}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Two-schedule: pair picker */}
+                      {analysisMode === 'two-schedule' && (
+                        <div className="flex flex-col gap-3">
+                          <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">Select Schedule Pair</p>
+                          <div className="flex items-center gap-4 flex-wrap">
+                            <div className="flex flex-col gap-1">
+                              <label className="text-xs text-gray-400">Earlier Schedule</label>
+                              <select
+                                value={selectedPair[0] || ''}
+                                onChange={e => setSelectedPair(prev => [e.target.value || null, prev[1]])}
+                                className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm
+                                  focus:outline-none focus:border-blue-500 transition-colors min-w-52"
+                              >
+                                <option value="">— Select schedule —</option>
+                                {uploadedSchedules.map(s => (
+                                  <option key={s.id} value={s.id}>{s.fileName} ({formatDate(s.dataDate)})</option>
+                                ))}
+                              </select>
+                            </div>
+                            <span className="text-gray-600 text-xl mt-4">→</span>
+                            <div className="flex flex-col gap-1">
+                              <label className="text-xs text-gray-400">Later Schedule</label>
+                              <select
+                                value={selectedPair[1] || ''}
+                                onChange={e => setSelectedPair(prev => [prev[0], e.target.value || null])}
+                                className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm
+                                  focus:outline-none focus:border-blue-500 transition-colors min-w-52"
+                              >
+                                <option value="">— Select schedule —</option>
+                                {uploadedSchedules.map(s => (
+                                  <option key={s.id} value={s.id}>{s.fileName} ({formatDate(s.dataDate)})</option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                          {selectedPair[0] && selectedPair[1] && selectedPair[0] === selectedPair[1] && (
+                            <p className="text-red-400 text-xs">Please select two different schedules.</p>
+                          )}
+                          <button
+                            onClick={runTwoScheduleAnalysis}
+                            disabled={!selectedPair[0] || !selectedPair[1] || selectedPair[0] === selectedPair[1]}
+                            className="w-fit bg-blue-600 hover:bg-blue-500 text-white font-semibold
+                              px-6 py-2.5 rounded-xl text-sm transition-colors
+                              disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            Run Two-Schedule Analysis
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Multi-schedule: baseline picker + run */}
+                      {analysisMode === 'multi-schedule' && (
+                        <div className="flex flex-col gap-3">
+                          <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">Baseline Schedule (Optional)</p>
+                          <p className="text-gray-400 text-xs">
+                            Select a schedule to use as the baseline reference. It will be highlighted on the trend chart.
+                          </p>
+                          <select
+                            value={baselineId || ''}
+                            onChange={e => setBaselineId(e.target.value || null)}
+                            className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm
+                              focus:outline-none focus:border-blue-500 transition-colors w-fit min-w-64"
+                          >
+                            <option value="">No baseline</option>
+                            {uploadedSchedules.map(s => (
+                              <option key={s.id} value={s.id}>{s.fileName} ({formatDate(s.dataDate)})</option>
+                            ))}
+                          </select>
+                          <button
+                            onClick={runMultiScheduleAnalysis}
+                            className="w-fit bg-blue-600 hover:bg-blue-500 text-white font-semibold
+                              px-6 py-2.5 rounded-xl text-sm transition-colors"
+                          >
+                            View Multi-Schedule Trend
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           )}
 
-          {/* Results */}
-          {activeTab === 'Results' && hasAnalysis && (
+          {/* ── Bow Wave Tab ── */}
+          {activeTab === 'Bow Wave' && hasTwoSchedResult && (
             <div className="flex flex-col gap-8">
 
-              {scheduleInfo && (
+              {/* Schedule summary bar */}
+              {twoSchedInfo && (
                 <div className="bg-gray-900 rounded-xl px-6 py-4 flex flex-wrap gap-6 items-center">
                   <div className="flex flex-col gap-0.5">
                     <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">Schedule 1 (Earlier)</p>
-                    <p className="text-white text-sm font-medium">{scheduleInfo.earlyFile}</p>
-                    <p className="text-gray-400 text-xs">Data Date: {formatDate(scheduleInfo.earlyDate)}</p>
+                    <p className="text-white text-sm font-medium">{twoSchedInfo.earlyFile}</p>
+                    <p className="text-gray-400 text-xs">Data Date: {formatDate(twoSchedInfo.earlyDate)}</p>
                   </div>
                   <div className="text-gray-600 text-xl">→</div>
                   <div className="flex flex-col gap-0.5">
                     <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">Schedule 2 (Later)</p>
-                    <p className="text-white text-sm font-medium">{scheduleInfo.lateFile}</p>
-                    <p className="text-gray-400 text-xs">Data Date: {formatDate(scheduleInfo.lateDate)}</p>
+                    <p className="text-white text-sm font-medium">{twoSchedInfo.lateFile}</p>
+                    <p className="text-gray-400 text-xs">Data Date: {formatDate(twoSchedInfo.lateDate)}</p>
                   </div>
                   <button
                     onClick={openDateModal}
@@ -490,70 +854,41 @@ export default function App() {
               )}
 
               {/* Filter bar */}
-              {rawSchedules && filterConfig.length > 0 && (
-                <FilterBar
-                  rawSchedules={rawSchedules}
-                  filterConfig={filterConfig}
-                  onApply={(newConfig) => {
-                    const applyFilterConfig = (activities, fc) => {
-                      if (!fc.length) return activities
-                      return activities.filter(a =>
-                        fc.every(f => f.selectedValues.includes(String(a[f.column] ?? '')))
-                      )
-                    }
-                    const filteredEarly = applyFilterConfig(rawSchedules.early, newConfig)
-                    const filteredLate  = applyFilterConfig(rawSchedules.late,  newConfig)
-                    try {
-                      const result = calcBowWave(
-                        filteredEarly, filteredLate,
-                        scheduleInfo.earlyDate, scheduleInfo.lateDate
-                      )
-                      setBowWaveResult(result)
-                      setSchedules({ early: filteredEarly, late: filteredLate })
-                      setFilterConfig(newConfig)
-                    } catch (err) {}
-                  }}
-                />
-              )}
+              <FilterBar
+                scheduleList={uploadedSchedules.map(s => s.rawRows)}
+                filterConfig={filterConfig}
+                onApply={handleReFilter}
+                availableColumns={availableFilterColumns}
+                onAddColumn={addFilterColumn}
+                onRemoveColumn={removeFilterColumn}
+              />
 
+              {/* Scenario tabs */}
               <div className="flex flex-col gap-2">
                 <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">Redistribution Scenario</p>
-                <ScenarioTabs
-                  bowWaveResult={bowWaveResult}
-                  onScenarioChange={setScenarioConfig}
-                />
+                <ScenarioTabs bowWaveResult={bowWaveResult} onScenarioChange={setScenarioConfig} />
               </div>
 
+              {/* Chart + KPI */}
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between flex-wrap gap-3">
                   <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">Workload Chart</p>
                   <div className="flex items-center gap-3">
                     <p className="text-xs text-gray-400">Base schedule:</p>
                     <div className="flex items-center gap-1 bg-gray-900 rounded-lg p-1">
-                      {[
-                        { key: 'A', label: 'Schedule 1' },
-                        { key: 'B', label: 'Schedule 2' },
-                      ].map(opt => (
-                        <button
-                          key={opt.key}
-                          onClick={() => setBaseSchedule(opt.key)}
+                      {[{ key: 'A', label: 'Schedule 1' }, { key: 'B', label: 'Schedule 2' }].map(opt => (
+                        <button key={opt.key} onClick={() => setBaseSchedule(opt.key)}
                           className={`px-3 py-1 rounded-md text-xs font-medium transition-colors
-                            ${baseSchedule === opt.key
-                              ? 'bg-blue-600 text-white'
-                              : 'text-gray-400 hover:text-white'}`}
-                        >
+                            ${baseSchedule === opt.key ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>
                           {opt.label}
                         </button>
                       ))}
                     </div>
                     <div className="flex items-center gap-1 bg-gray-900 rounded-lg p-1">
                       {['hrs', 'days'].map(u => (
-                        <button
-                          key={u}
-                          onClick={() => setUnit(u)}
+                        <button key={u} onClick={() => setUnit(u)}
                           className={`px-3 py-1 rounded-md text-xs font-medium transition-colors
-                            ${unit === u ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}
-                        >
+                            ${unit === u ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>
                           {u}
                         </button>
                       ))}
@@ -568,29 +903,72 @@ export default function App() {
                       bowWaveResult={bowWaveResult}
                       unit={unit}
                       baseSchedule={baseSchedule}
+                      groupByColumn={groupByColumn}
+                      onGroupByChange={setGroupByColumn}
+                      groupByColumns={availableFilterColumns}
+                      categoryChartData={categoryChartData}
                     />
                   </div>
                   <div className="w-64 shrink-0 flex flex-col gap-3">
                     <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">Summary</p>
-                    <KpiCards
-                      result={bowWaveResult}
-                      unit={unit}
-                      onUnitChange={setUnit}
-                    />
+                    <KpiCards result={bowWaveResult} unit={unit} onUnitChange={setUnit} />
                   </div>
                 </div>
               </div>
-
             </div>
           )}
-          {/* Schedule Data */}
+
+          {/* ── Trend Tab ── */}
+          {activeTab === 'Trend' && hasMultiResult && (
+            <div className="flex flex-col gap-8">
+
+              {/* Filter bar */}
+              <FilterBar
+                scheduleList={uploadedSchedules.map(s => s.rawRows)}
+                filterConfig={filterConfig}
+                onApply={handleReFilter}
+                availableColumns={availableFilterColumns}
+                onAddColumn={addFilterColumn}
+                onRemoveColumn={removeFilterColumn}
+              />
+
+              {/* Units toggle */}
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">
+                  Multi-Schedule Trend — {uploadedSchedules.length} schedules
+                </p>
+                <div className="flex items-center gap-1 bg-gray-900 rounded-lg p-1">
+                  {['hrs', 'days'].map(u => (
+                    <button key={u} onClick={() => setUnit(u)}
+                      className={`px-3 py-1 rounded-md text-xs font-medium transition-colors
+                        ${unit === u ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>
+                      {u}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <MultiScheduleChart
+                multiSeriesData={multiSeriesData}
+                unit={unit}
+                baselineId={baselineId}
+                onBaselineChange={setBaselineId}
+                uploadedSchedules={uploadedSchedules}
+              />
+
+              <BowWaveMagnitudeChart magnitudeData={bowWaveMagnitudeData} unit={unit} />
+
+              <SCurveChart sCurveData={sCurveData} unit={unit} />
+            </div>
+          )}
+
+          {/* ── Schedule Data Tab ── */}
           {activeTab === 'Schedule Data' && hasAnalysis && (
-            <ScheduleData schedules={schedules} scheduleInfo={scheduleInfo} />
+            <ScheduleData schedules={uploadedSchedules} />
           )}
 
         </div>
       </main>
-
     </div>
   )
 }

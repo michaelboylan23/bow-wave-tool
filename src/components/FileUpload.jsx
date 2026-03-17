@@ -1,80 +1,30 @@
 import { useState, useRef } from 'react'
 import * as XLSX from 'xlsx'
-import { autoMatch } from '../utils/columnMapping'
-import DualColumnMapper from './DualColumnMapper'
-import ActivityFilter from './ActivityFilter'
+import { autoMatch, REQUIRED_FIELDS, isMappingComplete } from '../utils/columnMapping'
 import { parseFile } from '../parsers/parseFile'
-import { calcBowWave } from '../utils/bowWaveCalc'
 import { extractXerDataDate } from '../parsers/parseXer'
 
 const ACCEPTED = '.csv,.xlsx,.xls,.xer'
 
-function DropZone({ label, file, onFile, dataDate, onDataDate }) {
-  const [dragging, setDragging] = useState(false)
-  const inputRef = useRef()
+const genId = () => `sched_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
 
-  const handleDrop = (e) => {
-    e.preventDefault()
-    setDragging(false)
-    const dropped = e.dataTransfer.files[0]
-    if (dropped) onFile(dropped)
-  }
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-  const handleChange = (e) => {
-    if (e.target.files[0]) onFile(e.target.files[0])
-  }
-
-  const getExt = (name) => name.split('.').pop().toUpperCase()
-
-  return (
-    <div className="flex flex-col gap-3">
-      <div
-        onClick={() => inputRef.current.click()}
-        onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={handleDrop}
-        className={`cursor-pointer rounded-xl border-2 border-dashed p-10 text-center transition-colors
-          ${dragging ? 'border-blue-400 bg-blue-950' : 'border-gray-600 hover:border-gray-400 bg-gray-900'}`}
-      >
-        <input ref={inputRef} type="file" accept={ACCEPTED} onChange={handleChange} className="hidden" />
-        <p className="text-sm text-gray-400 mb-3">{label}</p>
-        {file ? (
-          <div className="mt-2">
-            <span className="inline-block bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded mr-2">
-              {getExt(file.name)}
-            </span>
-            <span className="text-white text-sm">{file.name}</span>
-          </div>
-        ) : (
-          <p className="text-gray-500 text-sm">Drag & drop or click to browse<br />CSV, Excel, or XER</p>
-        )}
-      </div>
-      <div className="flex flex-col gap-1">
-        <label className="text-xs text-gray-400 font-medium">Data Date</label>
-        <input
-          type="date"
-          value={dataDate}
-          onChange={(e) => onDataDate(e.target.value)}
-          className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm
-            focus:outline-none focus:border-blue-500 transition-colors"
-        />
-      </div>
-    </div>
-  )
+function getExt(name) {
+  return name.split('.').pop().toLowerCase()
 }
 
 function extractHeaders(file) {
   return new Promise((resolve, reject) => {
-    const ext = file.name.split('.').pop().toLowerCase()
+    const ext = getExt(file.name)
     if (ext === 'xlsx' || ext === 'xls') {
       const reader = new FileReader()
       reader.onload = (e) => {
         try {
-          const workbook = XLSX.read(e.target.result, { type: 'array' })
-          const sheet = workbook.Sheets[workbook.SheetNames[0]]
+          const wb = XLSX.read(e.target.result, { type: 'array' })
+          const sheet = wb.Sheets[wb.SheetNames[0]]
           const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 })
-          const headers = (rows[0] || []).map(h => String(h).trim()).filter(Boolean)
-          resolve(headers)
+          resolve((rows[0] || []).map(h => String(h).trim()).filter(Boolean))
         } catch (err) { reject(err) }
       }
       reader.onerror = () => reject(new Error('Failed to read file'))
@@ -84,8 +34,7 @@ function extractHeaders(file) {
       reader.onload = (e) => {
         try {
           const firstLine = e.target.result.split('\n')[0]
-          const headers = firstLine.split(',').map(h => h.trim().replace(/^"|"$/g, '')).filter(Boolean)
-          resolve(headers)
+          resolve(firstLine.split(',').map(h => h.trim().replace(/^"|"$/g, '')).filter(Boolean))
         } catch (err) { reject(err) }
       }
       reader.onerror = () => reject(new Error('Failed to read file'))
@@ -95,14 +44,12 @@ function extractHeaders(file) {
       reader.onload = (e) => {
         try {
           const lines = e.target.result.split('\n')
-          let inTaskTable = false
-          let headers = []
+          let inTask = false, headers = []
           for (const line of lines) {
-            const trimmed = line.trim()
-            if (trimmed.startsWith('%T')) {
-              inTaskTable = trimmed.replace('%T', '').trim() === 'TASK'
-            } else if (inTaskTable && trimmed.startsWith('%F')) {
-              headers = trimmed.replace('%F', '').trim().split('\t').map(h => h.trim()).filter(Boolean)
+            const t = line.trim()
+            if (t.startsWith('%T')) { inTask = t.replace('%T', '').trim() === 'TASK' }
+            else if (inTask && t.startsWith('%F')) {
+              headers = t.replace('%F', '').trim().split('\t').map(h => h.trim()).filter(Boolean)
               break
             }
           }
@@ -121,74 +68,201 @@ function extractHeaders(file) {
 const enrichXerHeaders = (headers, ext) => {
   if (ext !== 'xer') return headers
   const extras = ['start_date', 'end_date']
-  const missing = extras.filter(h => !headers.includes(h))
-  return [...missing, ...headers]
+  return [...extras.filter(h => !headers.includes(h)), ...headers]
 }
 
 function Spinner() {
   return (
     <div className="flex flex-col items-center justify-center gap-3 py-12">
       <div className="w-10 h-10 border-4 border-gray-700 border-t-blue-500 rounded-full animate-spin" />
-      <p className="text-gray-400 text-sm">Parsing schedules and running analysis...</p>
+      <p className="text-gray-400 text-sm">Parsing schedules…</p>
     </div>
   )
 }
 
-export default function FileUpload({ onResult }) {
-  const [fileA, setFileA]             = useState(null)
-  const [fileB, setFileB]             = useState(null)
-  const [dateA, setDateA]             = useState('')
-  const [dateB, setDateB]             = useState('')
-  const [stage, setStage]             = useState('upload')
-  const [headersA, setHeadersA]       = useState([])
-  const [headersB, setHeadersB]       = useState([])
-  const [mappingA, setMappingA]       = useState(null)
-  const [mappingB, setMappingB]       = useState(null)
-  const [parsedA, setParsedA]         = useState(null)
-  const [parsedB, setParsedB]         = useState(null)
-  const [error, setError]             = useState(null)
-  const [loading, setLoading]         = useState(false)
+// ─── Drop Zone ────────────────────────────────────────────────────────────────
 
-  const readyToAnalyze = fileA && fileB && dateA && dateB
+function AddDropZone({ onFiles }) {
+  const [dragging, setDragging] = useState(false)
+  const inputRef = useRef()
 
-  const handleFileSelected = async (file, setFile, setDate) => {
-    setFile(file)
-    const ext = file.name.split('.').pop().toLowerCase()
-    if (ext === 'xer') {
-      const dateStr = await extractXerDataDate(file)
-      if (dateStr) setDate(dateStr)
-    }
+  const handleDrop = (e) => {
+    e.preventDefault()
+    setDragging(false)
+    const files = [...e.dataTransfer.files]
+    if (files.length) onFiles(files)
   }
 
-  const handleAnalyzeClick = async () => {
+  const handleChange = (e) => {
+    const files = [...e.target.files]
+    if (files.length) onFiles(files)
+    e.target.value = ''
+  }
+
+  return (
+    <div
+      onClick={() => inputRef.current.click()}
+      onDragOver={e => { e.preventDefault(); setDragging(true) }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={handleDrop}
+      className={`cursor-pointer rounded-xl border-2 border-dashed p-8 text-center transition-colors
+        ${dragging ? 'border-blue-400 bg-blue-950' : 'border-gray-700 hover:border-gray-500 bg-gray-900/50'}`}
+    >
+      <input ref={inputRef} type="file" accept={ACCEPTED} multiple onChange={handleChange} className="hidden" />
+      <p className="text-gray-400 text-sm mb-1">Drag & drop files here, or click to browse</p>
+      <p className="text-gray-600 text-xs">CSV, Excel, or XER · Multiple files supported</p>
+    </div>
+  )
+}
+
+// ─── Single-file mapping column ───────────────────────────────────────────────
+
+function MappingColumn({ fileName, allHeaders, mapping, onChange }) {
+  return (
+    <div className="flex-1 min-w-0 flex flex-col gap-3">
+      <div className="bg-gray-900 rounded-xl overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-gray-800">
+              <th className="px-4 py-3 text-left text-gray-300 font-semibold text-xs">Required Field</th>
+              <th className="px-4 py-3 text-left text-gray-300 font-semibold text-xs">Your Column</th>
+              <th className="px-4 py-3 text-left text-gray-300 font-semibold text-xs">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {REQUIRED_FIELDS.map((field, i) => {
+              const value = mapping[field.key]
+              return (
+                <tr key={field.key} className={i % 2 === 0 ? 'bg-gray-900' : 'bg-gray-800/50'}>
+                  <td className="px-4 py-3">
+                    <p className="text-white font-medium text-xs">{field.label}</p>
+                    <p className="text-gray-500 font-mono text-xs">{field.key}</p>
+                  </td>
+                  <td className="px-4 py-3">
+                    <select
+                      value={value || ''}
+                      onChange={e => onChange(field.key, e.target.value || null)}
+                      className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5
+                        text-white text-xs focus:outline-none focus:border-blue-500 transition-colors"
+                    >
+                      <option value="">— select —</option>
+                      {[...allHeaders].sort((a, b) => a.localeCompare(b)).map(h => (
+                        <option key={h} value={h}>{h}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    {value ? (
+                      <span className="inline-flex items-center gap-1 text-green-400 text-xs font-medium">✓ Matched</span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-yellow-400 text-xs font-medium">⚠ Needed</span>
+                    )}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+      {/* Show which files have each mapped column */}
+      <p className="text-xs text-gray-500">
+        This mapping applies to all {fileName ? `files (reference: ${fileName})` : 'uploaded files'}.
+      </p>
+    </div>
+  )
+}
+
+// ─── Main FileUpload component ─────────────────────────────────────────────────
+
+// onSchedulesReady: (uploadedSchedules, filterConfig) =>
+//   uploadedSchedules: [{ id, fileName, dataDate, rawRows, filteredRows }]
+//   filterConfig: [{ column, selectedValues: string[] }]
+export default function FileUpload({ onSchedulesReady }) {
+  // Stage: 'upload' | 'mapping' | 'filtering'
+  const [stage, setStage]       = useState('upload')
+  const [fileList, setFileList] = useState([])
+  // fileList items: { id, file, dataDate }
+
+  // Mapping stage
+  const [allHeaders, setAllHeaders] = useState([])   // union of headers from all files
+  const [refFileName, setRefFileName] = useState('')  // name of the reference file for mapping hint
+  const [mapping, setMapping]     = useState({})
+
+  const [loading, setLoading] = useState(false)
+  const [error, setError]     = useState(null)
+
+  // ── Upload stage helpers ──
+
+  const handleAddFiles = async (files) => {
+    const newEntries = []
+    for (const file of files) {
+      const id      = genId()
+      const dateStr = getExt(file.name) === 'xer' ? await extractXerDataDate(file) : ''
+      newEntries.push({ id, file, dataDate: dateStr || '' })
+    }
+    setFileList(prev => [...prev, ...newEntries])
     setError(null)
-    try {
-      const [hA, hB] = await Promise.all([extractHeaders(fileA), extractHeaders(fileB)])
-      const extA = fileA.name.split('.').pop().toLowerCase()
-      const extB = fileB.name.split('.').pop().toLowerCase()
-      setHeadersA(enrichXerHeaders(hA, extA))
-      setHeadersB(enrichXerHeaders(hB, extB))
-      setMappingA(autoMatch(enrichXerHeaders(hA, extA)))
-      setMappingB(autoMatch(enrichXerHeaders(hB, extB)))
-      setStage('mapping')
-    } catch (err) {
-      setError('Failed to read file headers: ' + err.message)
-    }
   }
 
-  const handleConfirmMapping = async (confirmedMappingA, confirmedMappingB) => {
-    setMappingA(confirmedMappingA)
-    setMappingB(confirmedMappingB)
+  const handleRemoveFile = (id) => {
+    setFileList(prev => prev.filter(f => f.id !== id))
+  }
+
+  const handleDateChange = (id, val) => {
+    setFileList(prev => prev.map(f => f.id === id ? { ...f, dataDate: val } : f))
+  }
+
+  const readyToMap = fileList.length >= 2 && fileList.every(f => f.dataDate)
+
+  const handleProceedToMapping = async () => {
     setError(null)
     setLoading(true)
     try {
-      const [activitiesA, activitiesB] = await Promise.all([
-        parseFile(fileA, confirmedMappingA),
-        parseFile(fileB, confirmedMappingB),
-      ])
-      setParsedA(activitiesA)
-      setParsedB(activitiesB)
-      setStage('filtering')
+      // Extract headers from all files
+      const headerSets = await Promise.all(
+        fileList.map(async (f) => {
+          const raw = await extractHeaders(f.file)
+          return enrichXerHeaders(raw, getExt(f.file.name))
+        })
+      )
+      // Union of all headers, deduplicated
+      const union = [...new Set(headerSets.flat())]
+      setAllHeaders(union)
+      setRefFileName(fileList[0].file.name)
+      setMapping(autoMatch(headerSets[0])) // auto-match against first file's headers
+      setStage('mapping')
+    } catch (err) {
+      setError('Failed to read file headers: ' + err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // ── Mapping stage handlers ──
+
+  const handleMappingChange = (key, value) => {
+    setMapping(prev => ({ ...prev, [key]: value || null }))
+  }
+
+  const handleConfirmMapping = async () => {
+    setError(null)
+    setLoading(true)
+    try {
+      const parsed = await Promise.all(
+        fileList.map(async (f) => {
+          const rows = await parseFile(f.file, mapping)
+          return { id: f.id, fileName: f.file.name, dataDate: f.dataDate, rows }
+        })
+      )
+      // Skip filtering at upload time — filters are configured in the Results tab
+      const uploaded = parsed.map(s => ({
+        id:           s.id,
+        fileName:     s.fileName,
+        dataDate:     s.dataDate,
+        rawRows:      s.rows,
+        filteredRows: s.rows,
+      }))
+      onSchedulesReady(uploaded, [])
     } catch (err) {
       setError('Failed to parse files: ' + err.message)
     } finally {
@@ -196,99 +270,134 @@ export default function FileUpload({ onResult }) {
     }
   }
 
-  const runAnalysis = (activitiesA, activitiesB, filterConfig, rawA, rawB) => {
-    setLoading(true)
-    try {
-      const dA = new Date(dateA)
-      const dB = new Date(dateB)
-      const [scheduleEarly, scheduleLate, dateEarly, dateLate, fileEarly, fileLate, ddEarly, ddLate] =
-        dA <= dB
-          ? [activitiesA, activitiesB, dateA, dateB, fileA.name, fileB.name, dateA, dateB]
-          : [activitiesB, activitiesA, dateB, dateA, fileB.name, fileA.name, dateB, dateA]
-
-      const result = calcBowWave(scheduleEarly, scheduleLate, dateEarly, dateLate)
-
-      // Determine raw order to match early/late assignment
-      const rawEarly = dA <= dB ? rawA : rawB
-      const rawLate  = dA <= dB ? rawB : rawA
-
-      onResult(result, scheduleEarly, scheduleLate, {
-        earlyFile: fileEarly, lateFile: fileLate,
-        earlyDate: ddEarly,   lateDate: ddLate,
-      }, filterConfig, rawEarly, rawLate)
-    } catch (err) {
-      setError('Failed to analyze schedules: ' + err.message)
-      setLoading(false)
-    }
-  }
-
-  const handleConfirmFilters = (filteredA, filteredB, filterConfig) => {
-    runAnalysis(filteredA, filteredB, filterConfig, parsedA, parsedB)
-  }
-
-  const handleSkipFilters = () => {
-    runAnalysis(parsedA, parsedB, [], parsedA, parsedB)
-  }
+  // ── Render ──
 
   if (loading) return <Spinner />
 
   if (stage === 'mapping') {
+    const complete = isMappingComplete(mapping)
+    const unmapped = REQUIRED_FIELDS.filter(f => !mapping[f.key]).length
     return (
-      <DualColumnMapper
-        fileNameA={fileA.name}
-        headersA={headersA}
-        fileNameB={fileB.name}
-        headersB={headersB}
-        onConfirm={handleConfirmMapping}
-      />
-    )
-  }
+      <div className="flex flex-col gap-6 max-w-2xl">
+        <div>
+          <h2 className="text-xl font-bold mb-1">Map Columns</h2>
+          <p className="text-gray-400 text-sm">
+            Match each required field to the corresponding column in your files.
+            This single mapping is applied to all {fileList.length} uploaded schedules.
+            Auto-matched fields are pre-filled — review before confirming.
+          </p>
+        </div>
 
-  if (stage === 'filtering') {
-    return (
-      <ActivityFilter
-        activitiesA={parsedA}
-        activitiesB={parsedB}
-        fileNameA={fileA.name}
-        fileNameB={fileB.name}
-        onConfirm={handleConfirmFilters}
-        onSkip={handleSkipFilters}
-      />
-    )
-  }
+        <MappingColumn
+          fileName={refFileName}
+          allHeaders={allHeaders}
+          mapping={mapping}
+          onChange={handleMappingChange}
+        />
 
-  return (
-    <div className="flex flex-col gap-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl">
-        <DropZone
-          label="Schedule File 1"
-          file={fileA}
-          onFile={(f) => handleFileSelected(f, setFileA, setDateA)}
-          dataDate={dateA}
-          onDataDate={setDateA}
-        />
-        <DropZone
-          label="Schedule File 2"
-          file={fileB}
-          onFile={(f) => handleFileSelected(f, setFileB, setDateB)}
-          dataDate={dateB}
-          onDataDate={setDateB}
-        />
+        {!complete && (
+          <p className="text-yellow-400 text-xs">
+            {unmapped} field{unmapped !== 1 ? 's' : ''} still need{unmapped === 1 ? 's' : ''} to be mapped.
+          </p>
+        )}
+
+        {error && (
+          <div className="bg-red-900/30 border border-red-700 rounded-xl p-4">
+            <p className="text-red-400 text-sm">{error}</p>
+          </div>
+        )}
+
+        <div className="flex gap-3">
+          <button
+            onClick={handleConfirmMapping}
+            disabled={!complete}
+            className={`flex-1 py-3 rounded-xl font-semibold text-sm transition-colors
+              ${complete ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-gray-800 text-gray-500 cursor-not-allowed'}`}
+          >
+            {complete ? 'Confirm Mapping & Continue' : 'Please map all required fields to continue'}
+          </button>
+          <button
+            onClick={() => setStage('upload')}
+            className="px-6 py-3 rounded-xl font-semibold text-sm bg-gray-800 hover:bg-gray-700
+              text-gray-300 hover:text-white transition-colors"
+          >
+            Back
+          </button>
+        </div>
       </div>
+    )
+  }
+
+  // ── Upload stage ──
+  return (
+    <div className="flex flex-col gap-6 max-w-3xl">
+      {/* File list */}
+      {fileList.length > 0 && (
+        <div className="flex flex-col gap-2">
+          {fileList.map((f, i) => {
+            const ext = getExt(f.file.name).toUpperCase()
+            return (
+              <div
+                key={f.id}
+                className="bg-gray-900 border border-gray-800 rounded-xl px-5 py-3 flex items-center gap-4"
+              >
+                <span className="text-xs font-bold text-gray-400 w-6 shrink-0">{i + 1}</span>
+                <span className="inline-block bg-blue-600 text-white text-xs font-bold px-2 py-0.5 rounded shrink-0">
+                  {ext}
+                </span>
+                <span className="text-white text-sm flex-1 truncate">{f.file.name}</span>
+                <div className="flex items-center gap-2 shrink-0">
+                  <label className="text-xs text-gray-500">Data Date</label>
+                  <input
+                    type="date"
+                    value={f.dataDate}
+                    onChange={e => handleDateChange(f.id, e.target.value)}
+                    className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-white text-xs
+                      focus:outline-none focus:border-blue-500 transition-colors"
+                  />
+                </div>
+                <button
+                  onClick={() => handleRemoveFile(f.id)}
+                  className="text-gray-600 hover:text-red-400 transition-colors text-lg leading-none shrink-0"
+                  title="Remove"
+                >
+                  ×
+                </button>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Drop zone */}
+      <AddDropZone onFiles={handleAddFiles} />
+
+      {fileList.length < 2 && (
+        <p className="text-gray-500 text-xs">
+          Add at least 2 schedule files to continue.
+          {fileList.length === 1 ? ' Add 1 more.' : ''}
+        </p>
+      )}
+
+      {fileList.length >= 2 && !fileList.every(f => f.dataDate) && (
+        <p className="text-yellow-400 text-xs">
+          All schedules need a Data Date before you can continue.
+        </p>
+      )}
+
       {error && (
-        <div className="max-w-3xl bg-red-900/30 border border-red-700 rounded-xl p-4">
+        <div className="bg-red-900/30 border border-red-700 rounded-xl p-4">
           <p className="text-red-400 text-sm">{error}</p>
         </div>
       )}
-      {readyToAnalyze && (
-        <div className="max-w-3xl">
-          <button
-            onClick={handleAnalyzeClick}
-            className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-xl transition-colors"
-          >
-            Analyze Schedules
-          </button>
-        </div>
+
+      {readyToMap && (
+        <button
+          onClick={handleProceedToMapping}
+          className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-xl transition-colors"
+        >
+          Continue to Column Mapping →
+        </button>
       )}
     </div>
   )
