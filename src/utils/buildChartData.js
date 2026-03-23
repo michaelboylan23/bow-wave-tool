@@ -249,10 +249,19 @@ export function buildChartDataByCategory(scheduleA, scheduleB, bowWaveResult, sc
     const isWindow  = mStart >= monthStart(windowStart) && mStart <= monthStart(windowEnd)
 
     const row = { month: label, isPast, isWindow }
+
+    const totalPlanned = categories.reduce((sum, cat) => sum + (catByMonth[cat][label] || 0), 0)
+    const bwTotal = bowWaveByMonth[label] || 0
+
     for (const cat of categories) {
-      row[`cat__${cat}`] = Math.round((catByMonth[cat][label] || 0) * 10) / 10
+      const planned = catByMonth[cat][label] || 0
+      row[`cat__${cat}`] = Math.round(planned * 10) / 10
+      // Proportional share of this month's bow wave for this category
+      const bwShare = totalPlanned > 0 ? bwTotal * (planned / totalPlanned) : 0
+      row[`cat__${cat}__bw`] = Math.round(bwShare * 10) / 10
     }
-    row.bowWave = Math.round((bowWaveByMonth[label] || 0) * 10) / 10
+
+    row.bowWave = Math.round(bwTotal * 10) / 10
     return row
   })
 

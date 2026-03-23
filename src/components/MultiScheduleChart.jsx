@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useRef } from 'react'
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, ReferenceLine,
 } from 'recharts'
 import { formatMonthLabel } from '../utils/buildChartData'
 import DualRangeSlider from './DualRangeSlider'
+import { exportChart } from '../utils/exportChart'
 
 // Colour palette for series (latest always uses blue bars; others cycle through these)
 const LINE_COLORS = ['#f97316', '#22c55e', '#a855f7', '#ec4899', '#14b8a6', '#eab308', '#f43f5e']
@@ -34,20 +35,14 @@ function shortName(fileName, dataDate) {
   return dd ? `${base} (${dd})` : base
 }
 
-export default function MultiScheduleChart({ multiSeriesData, unit, baselineId, onBaselineChange, uploadedSchedules }) {
-  const [startIdx, setStartIdx] = useState(0)
-  const [endIdx, setEndIdx]     = useState(0)
-
+export default function MultiScheduleChart({ multiSeriesData, unit, baselineId, onBaselineChange, uploadedSchedules, zoomStart, zoomEnd, onZoomChange, projectName, projectNumber }) {
+  const exportRef = useRef(null)
   const { monthLabels = [], series = [] } = multiSeriesData || {}
 
-  useEffect(() => {
-    if (monthLabels.length > 0) {
-      setStartIdx(0)
-      setEndIdx(monthLabels.length - 1)
-    }
-  }, [monthLabels.length])
-
   if (!monthLabels.length || !series.length) return null
+
+  const startIdx = zoomStart
+  const endIdx   = zoomEnd < 0 ? monthLabels.length - 1 : Math.min(zoomEnd, monthLabels.length - 1)
 
   const toVal = (v) => unit === 'hrs' ? v : v / 8
 
@@ -79,27 +74,48 @@ export default function MultiScheduleChart({ multiSeriesData, unit, baselineId, 
     color: s.isLatest ? '#3b82f6' : (seriesColor[s.id] || '#6b7280'),
   }))
 
+  const handleExport = () => {
+    if (!exportRef.current) return
+    const meta = []
+    if (projectNumber || projectName) meta.push(`Project: ${[projectNumber, projectName].filter(Boolean).join(' — ')}`)
+    const baselineSched = (uploadedSchedules || []).find(s => s.id === baselineId)
+    meta.push(`Baseline: ${baselineSched ? baselineSched.fileName : 'None'}`)
+    const slug = [projectNumber, projectName].filter(Boolean).join('-').replace(/\s+/g, '-') || 'multi-schedule'
+    exportChart(exportRef.current, meta, `${slug}-trend`)
+  }
+
   return (
     <div className="bg-gray-900 rounded-xl p-6 flex flex-col gap-6">
+      <div ref={exportRef} className="flex flex-col gap-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h3 className="text-sm font-semibold text-gray-300">
           Multi-Schedule Trend — Remaining Planned Work
         </h3>
-
-        {/* Baseline selector */}
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-400">Baseline:</span>
-          <select
-            value={baselineId || ''}
-            onChange={e => onBaselineChange(e.target.value || null)}
-            className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-white text-xs
-              focus:outline-none focus:border-blue-500 transition-colors"
+        <div className="flex items-center gap-3 print:hidden">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-400">Baseline:</span>
+            <select
+              value={baselineId || ''}
+              onChange={e => onBaselineChange(e.target.value || null)}
+              className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-white text-xs
+                focus:outline-none focus:border-blue-500 transition-colors"
+            >
+              <option value="">None</option>
+              {(uploadedSchedules || []).map(s => (
+                <option key={s.id} value={s.id}>{s.fileName} ({s.dataDate})</option>
+              ))}
+            </select>
+          </div>
+          <button
+            onClick={handleExport}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-gray-800 hover:bg-gray-700
+              text-gray-400 hover:text-white text-xs font-medium transition-colors"
           >
-            <option value="">None</option>
-            {(uploadedSchedules || []).map(s => (
-              <option key={s.id} value={s.id}>{s.fileName} ({s.dataDate})</option>
-            ))}
-          </select>
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+            Export PDF
+          </button>
         </div>
       </div>
 
@@ -121,7 +137,7 @@ export default function MultiScheduleChart({ multiSeriesData, unit, baselineId, 
         )}
       </div>
 
-      <ResponsiveContainer width="100%" height={420}>
+      <ResponsiveContainer key={unit} width="100%" height={420}>
         <ComposedChart data={chartData} margin={{ top: 10, right: 20, left: 20, bottom: 60 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
           <XAxis
@@ -189,6 +205,8 @@ export default function MultiScheduleChart({ multiSeriesData, unit, baselineId, 
         </ComposedChart>
       </ResponsiveContainer>
 
+      </div>{/* end exportRef */}
+
       {/* Zoom controls */}
       <div className="flex flex-col gap-3 border-t border-gray-800 pt-4">
         <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Zoom</p>
@@ -197,8 +215,8 @@ export default function MultiScheduleChart({ multiSeriesData, unit, baselineId, 
           max={monthLabels.length - 1}
           start={startIdx}
           end={endIdx}
-          onStartChange={setStartIdx}
-          onEndChange={setEndIdx}
+          onStartChange={(v) => onZoomChange(v, endIdx)}
+          onEndChange={(v) => onZoomChange(startIdx, v)}
           startLabel={monthLabels[startIdx]}
           endLabel={monthLabels[endIdx]}
         />

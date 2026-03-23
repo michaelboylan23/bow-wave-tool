@@ -7,10 +7,10 @@ const SCENARIOS = [
   { key: 'distribute-to-recovery', label: 'Distribute to Recovery',  desc: 'Unfinished work spread evenly between the latest data date and a chosen recovery date.' },
 ]
 
-export default function ScenarioTabs({ bowWaveResult, onScenarioChange }) {
-  const [activeScenario, setActiveScenario]       = useState('front-load')
-  const [endDateOverride, setEndDateOverride]      = useState('')
-  const [recoveryDate, setRecoveryDate]            = useState('')
+export default function ScenarioTabs({ bowWaveResult, onScenarioChange, scenarioConfig }) {
+  const [activeScenario, setActiveScenario]       = useState(scenarioConfig?.scenario       || 'front-load')
+  const [endDateOverride, setEndDateOverride]      = useState(scenarioConfig?.endDateOverride || '')
+  const [recoveryDate, setRecoveryDate]            = useState(scenarioConfig?.recoveryDate    || '')
 
   const handleScenarioChange = (key) => {
     setActiveScenario(key)

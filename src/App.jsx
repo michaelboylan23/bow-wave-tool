@@ -15,6 +15,7 @@ import ScheduleData from './components/ScheduleData'
 import FilterBar from './components/FilterBar'
 import VersionBanner from './components/VersionBanner'
 import BugReportModal from './components/BugReportModal'
+import RemapColumnsModal from './components/RemapColumnsModal'
 import { trackOpen } from './utils/trackUsage'
 import {
   EXAMPLE_SCHEDULE_A, EXAMPLE_SCHEDULE_B,
@@ -42,6 +43,10 @@ export default function App() {
   // Each schedule: { id, fileName, dataDate, rawRows, filteredRows }
   const [uploadedSchedules, setUploadedSchedules] = useState([])
   const [filterConfig, setFilterConfig]           = useState([])
+  // Remap support — raw File objects + mapping stored after upload
+  const [rawFileList,    setRawFileList]    = useState([]) // [{ id, file, dataDate }]
+  const [columnHeaders,  setColumnHeaders]  = useState([])
+  const [activeMapping,  setActiveMapping]  = useState({})
 
   // ── Project info ────────────────────────────────────────────────────────────
   const [projectName,   setProjectName]   = useState('')
@@ -65,6 +70,11 @@ export default function App() {
   // Track whether multi-schedule analysis has been run
   const [multiScheduleRun, setMultiScheduleRun] = useState(false)
 
+  // ── Zoom state (persists across tab switches and save/load) ─────────────────
+  const [bowWaveZoom,    setBowWaveZoom]    = useState({ start: 0, end: -1 })
+  const [sCurveZoom,     setSCurveZoom]     = useState({ start: 0, end: -1 })
+  const [multiChartZoom, setMultiChartZoom] = useState({ start: 0, end: -1 })
+
   // ── Display settings ────────────────────────────────────────────────────────
   const [unit,           setUnit]           = useState('hrs')
   const [baseSchedule,   setBaseSchedule]   = useState('B')
@@ -75,6 +85,7 @@ export default function App() {
   // ── UI state ────────────────────────────────────────────────────────────────
   const [activeTab,           setActiveTab]           = useState('Analysis')
   const [bugReportOpen,       setBugReportOpen]       = useState(false)
+  const [remapOpen,           setRemapOpen]           = useState(false)
   const [confirmingNew,       setConfirmingNew]       = useState(false)
   const [confirmingOverwrite, setConfirmingOverwrite] = useState(false)
   const [pendingUpload,       setPendingUpload]       = useState(null)
@@ -95,17 +106,20 @@ export default function App() {
   const earlySchedule = uploadedSchedules.find(s => s.id === twoSchedInfo?.earlyId)
   const lateSchedule  = uploadedSchedules.find(s => s.id === twoSchedInfo?.lateId)
 
-  const chartData = hasTwoSchedResult && earlySchedule && lateSchedule
-    ? buildChartData(
-        earlySchedule.filteredRows,
-        lateSchedule.filteredRows,
-        bowWaveResult,
-        scenarioConfig.scenario,
-        scenarioConfig.endDateOverride,
-        scenarioConfig.recoveryDate,
-        baseSchedule,
-      )
-    : null
+  const chartData = useMemo(() =>
+    hasTwoSchedResult && earlySchedule && lateSchedule
+      ? buildChartData(
+          earlySchedule.filteredRows,
+          lateSchedule.filteredRows,
+          bowWaveResult,
+          scenarioConfig.scenario,
+          scenarioConfig.endDateOverride,
+          scenarioConfig.recoveryDate,
+          baseSchedule,
+        )
+      : null,
+    [hasTwoSchedResult, earlySchedule, lateSchedule, bowWaveResult, scenarioConfig, baseSchedule]
+  )
 
   const multiSeriesData = useMemo(() =>
     analysisMode === 'multi-schedule' && hasSchedules
@@ -150,9 +164,12 @@ export default function App() {
   }, [uploadedSchedules])
 
   // ── Schedule upload callback ────────────────────────────────────────────────
-  const applyUpload = (schedules, fc) => {
+  const applyUpload = (schedules, fc, fileList = [], headers = [], mapping = {}) => {
     setUploadedSchedules(schedules)
     setFilterConfig(fc)
+    setRawFileList(fileList)
+    setColumnHeaders(headers)
+    setActiveMapping(mapping)
     // Reset analysis results
     setBowWaveResult(null)
     setTwoSchedInfo(null)
@@ -165,18 +182,19 @@ export default function App() {
     setActiveTab('Analysis')
   }
 
-  const handleSchedulesReady = (schedules, fc) => {
+  const handleSchedulesReady = (schedules, fc, fileList = [], headers = [], mapping = {}) => {
     if (hasSchedules) {
-      setPendingUpload({ schedules, fc })
+      setPendingUpload({ schedules, fc, fileList, headers, mapping })
       setConfirmingOverwrite(true)
     } else {
-      applyUpload(schedules, fc)
+      applyUpload(schedules, fc, fileList, headers, mapping)
     }
   }
 
   const confirmOverwrite = () => {
     if (pendingUpload) {
-      applyUpload(pendingUpload.schedules, pendingUpload.fc)
+      const { schedules, fc, fileList, headers, mapping } = pendingUpload
+      applyUpload(schedules, fc, fileList, headers, mapping)
       setPendingUpload(null)
     }
     setConfirmingOverwrite(false)
@@ -197,6 +215,7 @@ export default function App() {
     try {
       const result = calcBowWave(early.filteredRows, late.filteredRows, early.dataDate, late.dataDate)
       setBowWaveResult(result)
+      setBowWaveZoom({ start: 0, end: -1 })
       setTwoSchedInfo({
         earlyId:   early.id,   lateId:   late.id,
         earlyFile: early.fileName, lateFile: late.fileName,
@@ -213,6 +232,8 @@ export default function App() {
   const runMultiScheduleAnalysis = () => {
     setAnalysisMode('multi-schedule')
     setMultiScheduleRun(true)
+    setSCurveZoom({ start: 0, end: -1 })
+    setMultiChartZoom({ start: 0, end: -1 })
     setActiveTab('Trend')
   }
 
@@ -285,6 +306,9 @@ export default function App() {
     setBaseSchedule('B')
     setGroupByColumn(null)
     setMultiScheduleRun(false)
+    setBowWaveZoom({ start: 0, end: -1 })
+    setSCurveZoom({ start: 0, end: -1 })
+    setMultiChartZoom({ start: 0, end: -1 })
     setConfirmingNew(false)
   }
 
@@ -303,6 +327,7 @@ export default function App() {
       scenarioConfig,
       unit,
       baseSchedule,
+      bowWaveZoom, sCurveZoom, multiChartZoom,
       savedAt: new Date().toISOString(),
     }
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
@@ -356,6 +381,9 @@ export default function App() {
           setBaseSchedule(payload.baseSchedule || 'B')
           setMultiScheduleRun(payload.analysisMode === 'multi-schedule')
           setGroupByColumn(null)
+          setBowWaveZoom(payload.bowWaveZoom     || { start: 0, end: -1 })
+          setSCurveZoom(payload.sCurveZoom       || { start: 0, end: -1 })
+          setMultiChartZoom(payload.multiChartZoom || { start: 0, end: -1 })
           setActiveTab(payload.bowWaveResult ? 'Bow Wave' : 'Trend')
 
         // ── v1 migration ──
@@ -484,7 +512,7 @@ export default function App() {
   ]
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white flex flex-col">
+    <div className="h-screen bg-gray-950 text-white flex flex-col overflow-hidden">
 
       <Header
         projectName={projectName}
@@ -498,6 +526,19 @@ export default function App() {
       />
       <VersionBanner />
       {bugReportOpen && <BugReportModal onClose={() => setBugReportOpen(false)} />}
+      {remapOpen && (
+        <RemapColumnsModal
+          headers={columnHeaders}
+          currentMapping={activeMapping}
+          rawFiles={rawFileList}
+          onConfirm={(newSchedules, newMapping) => {
+            setActiveMapping(newMapping)
+            applyUpload(newSchedules, [], rawFileList, columnHeaders, newMapping)
+            setRemapOpen(false)
+          }}
+          onClose={() => setRemapOpen(false)}
+        />
+      )}
 
       {/* ── Confirm New Project ── */}
       {confirmingNew && (
@@ -598,16 +639,16 @@ export default function App() {
         </div>
       )}
 
-      <main className="flex-1 px-8 py-8">
+      <main className="flex-1 overflow-y-auto px-8 pb-8">
         <div className="max-w-6xl mx-auto flex flex-col gap-8">
 
           {/* ── Tab Bar ── */}
-          <div className="flex gap-2 border-b border-gray-800">
+          <div className="sticky top-0 z-30 bg-gray-950 -mx-8 px-8 pt-2 flex gap-2 border-b border-gray-800">
             {TABS.filter(t => t.show).map(tab => (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
-                className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px
+                className={`px-4 py-1 text-sm font-medium transition-colors border-b-2 -mb-px
                   ${activeTab === tab.key
                     ? 'border-blue-500 text-white'
                     : tab.key === 'Example'
@@ -671,11 +712,9 @@ export default function App() {
                 <>
                   {/* ── Upload section ── */}
                   <div className="flex flex-col gap-3">
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">
-                        {hasSchedules ? `Uploaded Schedules (${uploadedSchedules.length})` : 'Upload Schedules'}
-                      </p>
-                    </div>
+                    <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">
+                      {hasSchedules ? `Uploaded Schedules (${uploadedSchedules.length})` : 'Upload Schedules'}
+                    </p>
                     <FileUpload onSchedulesReady={handleSchedulesReady} />
                   </div>
 
@@ -688,7 +727,18 @@ export default function App() {
 
                       {/* Loaded schedules summary */}
                       <div className="flex flex-col gap-2">
-                        <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">Loaded Schedules</p>
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">Loaded Schedules</p>
+                          {rawFileList.length > 0 && (
+                            <button
+                              onClick={() => setRemapOpen(true)}
+                              className="text-xs text-gray-400 hover:text-white bg-gray-800 hover:bg-gray-700
+                                border border-gray-700 hover:border-gray-500 px-3 py-1.5 rounded-lg transition-colors"
+                            >
+                              Remap Columns
+                            </button>
+                          )}
+                        </div>
                         <div className="flex flex-col gap-1.5">
                           {uploadedSchedules.map((s, i) => (
                             <div key={s.id}
@@ -876,7 +926,7 @@ export default function App() {
               {/* Scenario tabs */}
               <div className="flex flex-col gap-2">
                 <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">Redistribution Scenario</p>
-                <ScenarioTabs bowWaveResult={bowWaveResult} onScenarioChange={setScenarioConfig} />
+                <ScenarioTabs bowWaveResult={bowWaveResult} onScenarioChange={setScenarioConfig} scenarioConfig={scenarioConfig} />
               </div>
 
               {/* Chart + KPI */}
@@ -917,6 +967,12 @@ export default function App() {
                       onGroupByChange={setGroupByColumn}
                       groupByColumns={availableFilterColumns}
                       categoryChartData={categoryChartData}
+                      zoomStart={bowWaveZoom.start}
+                      zoomEnd={bowWaveZoom.end}
+                      onZoomChange={(s, e) => setBowWaveZoom({ start: s, end: e })}
+                      projectName={projectName}
+                      projectNumber={projectNumber}
+                      scenarioConfig={scenarioConfig}
                     />
                   </div>
                   <div className="w-64 shrink-0 flex flex-col gap-3">
@@ -964,11 +1020,24 @@ export default function App() {
                 baselineId={baselineId}
                 onBaselineChange={setBaselineId}
                 uploadedSchedules={uploadedSchedules}
+                zoomStart={multiChartZoom.start}
+                zoomEnd={multiChartZoom.end}
+                onZoomChange={(s, e) => setMultiChartZoom({ start: s, end: e })}
+                projectName={projectName}
+                projectNumber={projectNumber}
               />
 
               <BowWaveMagnitudeChart magnitudeData={bowWaveMagnitudeData} unit={unit} />
 
-              <SCurveChart sCurveData={sCurveData} unit={unit} />
+              <SCurveChart
+                sCurveData={sCurveData}
+                unit={unit}
+                zoomStart={sCurveZoom.start}
+                zoomEnd={sCurveZoom.end}
+                onZoomChange={(s, e) => setSCurveZoom({ start: s, end: e })}
+                projectName={projectName}
+                projectNumber={projectNumber}
+              />
             </div>
           )}
 

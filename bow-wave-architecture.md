@@ -1,6 +1,6 @@
 # Bow Wave Analysis Tool — Architecture & Progress
 
-**Last Updated:** March 2026 (session 2)
+**Last Updated:** March 2026 (session 3)
 **Current Phase:** Phase 1 — POC / Portable Desktop App
 
 ---
@@ -86,6 +86,15 @@ A browser-based tool that accepts multiple Primavera P6 schedule exports (CSV, E
 | Schedule Data — show all raw columns from file (not just 9 mapped fields) | ✅ Complete |
 | Electron portable .exe (Windows, no install required) | ✅ Complete |
 | Instructions page | ✅ Complete |
+| Version check banner (GitHub Releases API — green toast if current, amber if outdated) | ✅ Complete |
+| In-app bug reporting (GitHub Issues API via VITE_GITHUB_TOKEN) | ✅ Complete |
+| App-open usage tracking (GitHub Gist append via VITE_USAGE_GIST_ID) | ✅ Complete |
+| Sticky header + tab bar while scrolling | ✅ Complete |
+| Hatched bow wave bars in Group By mode (per-category color) | ✅ Complete |
+| Re-map Columns button — re-parse all files with a new column mapping | ✅ Complete |
+| Zoom state persisted across tab switches and in .bwt save/load | ✅ Complete |
+| Redistribution scenario selection persists across tab switches | ✅ Complete |
+| Export PDF — print dialog, landscape, logo + metadata header, no zoom bar | ✅ Complete |
 | Browser-based session persistence (survive page refresh) | 🔴 Not Started (deprioritized) |
 | **Save/Load — Production:** Save session JSON to SharePoint library via MS Graph | 🔴 Not Started |
 | **Save/Load — Production:** Browse & load project files from SharePoint library | 🔴 Not Started |
@@ -116,14 +125,17 @@ bow-wave-tool/
 │   │   ├── DualRangeSlider.jsx       ✅ Two-thumb range slider; pointer-move z-index fix for left thumb
 │   │   ├── FileUpload.jsx            ✅ Drag & drop N-file upload; shared column mapping; no filter step
 │   │   ├── FilterBar.jsx             ✅ Add/remove filter columns; multi-select; applies to all schedules
-│   │   ├── Header.jsx                ✅ Logo, project info, Save/New Project buttons
+│   │   ├── Header.jsx                ✅ Logo, project info, Save/New Project, Report a Bug buttons
 │   │   ├── Instructions.jsx          ✅ Full step-by-step instructions page
 │   │   ├── KpiCards.jsx              ✅ Planned/Actual/Delta cards
 │   │   ├── MultiScheduleChart.jsx    ✅ Trend charts container for Multi-Schedule Trend tab
 │   │   ├── ProjectInfo.jsx           ✅ Project name + number inputs
+│   │   ├── RemapColumnsModal.jsx     ✅ Re-parse all files with a new column mapping
 │   │   ├── SCurveChart.jsx           ✅ Cumulative planned hours S-curve, one line per schedule
 │   │   ├── ScheduleData.jsx          ✅ Virtualized activity table with filters + column manager
-│   │   └── ScenarioTabs.jsx          ✅ 4 redistribution scenario tabs with date pickers
+│   │   ├── ScenarioTabs.jsx          ✅ 4 redistribution scenario tabs; state initialized from scenarioConfig prop
+│   │   ├── VersionBanner.jsx         ✅ Checks GitHub Releases on launch; green toast or amber update banner
+│   │   └── BugReportModal.jsx        ✅ Posts to GitHub Issues API with bug label
 │   ├── data/
 │   │   └── exampleProject.js    ✅ Hardcoded example schedule data
 │   ├── parsers/
@@ -137,7 +149,9 @@ bow-wave-tool/
 │   │   ├── buildChartData.js    ✅ Monthly chart data + redistribution scenarios + category grouping
 │   │   │                           Exports: buildChartData, buildBowWaveMagnitudeData,
 │   │   │                                    buildSCurveData, buildChartDataByCategory
-│   │   └── columnMapping.js     ✅ Auto-match logic + aliases + required fields
+│   │   ├── columnMapping.js     ✅ Auto-match logic + aliases + required fields
+│   │   ├── exportChart.js       ✅ Print-to-PDF via window.print(); hides UI controls, shows logo + metadata
+│   │   └── trackUsage.js        ✅ Appends ISO timestamp to GitHub Gist on app open
 │   ├── App.jsx                  ✅ Root layout, state, tab routing
 │   ├── main.jsx
 │   └── index.css
@@ -291,9 +305,12 @@ JSON file containing:
 | `scenarioConfig` | `{ scenario, endDateOverride, recoveryDate }` |
 | `unit` | `'hrs'` or `'days'` |
 | `baseSchedule` | `'A'` or `'B'` |
+| `bowWaveZoom` | `{ start, end }` — zoom state for Bow Wave chart (`end: -1` = full range) |
+| `sCurveZoom` | `{ start, end }` — zoom state for S-Curve chart |
+| `multiChartZoom` | `{ start, end }` — zoom state for Multi-Schedule Trend chart |
 | `savedAt` | ISO timestamp |
 
-On load, date strings in `bowWaveResult` (windowStart/windowEnd) and all `start_date`/`end_date` fields in activity arrays must be rehydrated to JS Date objects.
+On load, date strings in `bowWaveResult` (windowStart/windowEnd) and all `start_date`/`end_date` fields in activity arrays must be rehydrated to JS Date objects. Zoom fields default to `{ start: 0, end: -1 }` if absent (older saves).
 
 ---
 

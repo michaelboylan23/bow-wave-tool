@@ -262,7 +262,10 @@ export default function FileUpload({ onSchedulesReady }) {
         rawRows:      s.rows,
         filteredRows: s.rows,
       }))
-      onSchedulesReady(uploaded, [])
+      onSchedulesReady(uploaded, [], fileList, allHeaders, mapping)
+      // Reset back to upload stage so the component is clean for next use
+      setStage('upload')
+      setFileList([])
     } catch (err) {
       setError('Failed to parse files: ' + err.message)
     } finally {
