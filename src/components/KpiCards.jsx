@@ -7,7 +7,7 @@ const unitLabel = (unit) => unit === 'hrs' ? 'hrs' : 'days'
 
 function Card({ title, value, sub, color }) {
   return (
-    <div className="bg-card rounded-xl p-5 flex flex-col gap-1">
+    <div className="bg-control rounded-xl p-5 flex flex-col gap-1">
       <p className="text-xs text-fg-3 font-medium uppercase tracking-wide">{title}</p>
       <p className={`text-2xl font-bold ${color || 'text-fg'}`}>{value}</p>
       {sub && <p className="text-sm text-fg-3">{sub}</p>}
@@ -16,17 +16,15 @@ function Card({ title, value, sub, color }) {
 }
 
 export default function KpiCards({ result, unit, onUnitChange }) {
-  const { plannedHrs, actualHrs, deltaHrs, completionPct, windowStart, windowEnd } = result
-
-  const dateLabel = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  const { plannedHrs, actualHrs, deltaHrs, completionPct } = result
 
   return (
-    <div className="flex flex-col gap-3 h-full">
+    <>
       <Card
         title="Planned"
         value={`${fmt(plannedHrs, unit)} ${unitLabel(unit)}`}
         sub="Scheduled in window"
-        color="text-blue-400"
+        color="text-accent"
       />
       <Card
         title="Actual Completed"
@@ -38,7 +36,7 @@ export default function KpiCards({ result, unit, onUnitChange }) {
         title="Bow Wave (Delta)"
         value={`${fmt(deltaHrs, unit)} ${unitLabel(unit)}`}
         sub={`${(100 - completionPct).toFixed(2)}% incomplete`}
-        color="text-orange-400"
+        color="text-accent-b"
       />
       <Card
         title="Completion"
@@ -46,6 +44,6 @@ export default function KpiCards({ result, unit, onUnitChange }) {
         sub="Of planned work done"
         color={completionPct >= 80 ? 'text-green-400' : completionPct >= 50 ? 'text-yellow-400' : 'text-red-400'}
       />
-    </div>
+    </>
   )
 }

@@ -3,7 +3,6 @@ import Header from './components/Header'
 import FileUpload from './components/FileUpload'
 import Instructions from './components/Instructions'
 import ProjectInfo from './components/ProjectInfo'
-import KpiCards from './components/KpiCards'
 import ScenarioTabs from './components/ScenarioTabs'
 import BowWaveChart from './components/BowWaveChart'
 import MultiScheduleChart from './components/MultiScheduleChart'
@@ -958,30 +957,23 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="flex gap-4 items-stretch">
-                  <div className="flex-1 min-w-0">
-                    <BowWaveChart
-                      chartData={chartData}
-                      bowWaveResult={bowWaveResult}
-                      unit={unit}
-                      baseSchedule={baseSchedule}
-                      groupByColumn={groupByColumn}
-                      onGroupByChange={setGroupByColumn}
-                      groupByColumns={availableFilterColumns}
-                      categoryChartData={categoryChartData}
-                      zoomStart={bowWaveZoom.start}
-                      zoomEnd={bowWaveZoom.end}
-                      onZoomChange={(s, e) => setBowWaveZoom({ start: s, end: e })}
-                      projectName={projectName}
-                      projectNumber={projectNumber}
-                      scenarioConfig={scenarioConfig}
-                    />
-                  </div>
-                  <div className="w-64 shrink-0 flex flex-col gap-3">
-                    <p className="text-xs text-fg-4 uppercase tracking-wide font-medium">Summary</p>
-                    <KpiCards result={bowWaveResult} unit={unit} onUnitChange={setUnit} />
-                  </div>
-                </div>
+                <BowWaveChart
+                  chartData={chartData}
+                  bowWaveResult={bowWaveResult}
+                  unit={unit}
+                  onUnitChange={setUnit}
+                  baseSchedule={baseSchedule}
+                  groupByColumn={groupByColumn}
+                  onGroupByChange={setGroupByColumn}
+                  groupByColumns={availableFilterColumns}
+                  categoryChartData={categoryChartData}
+                  zoomStart={bowWaveZoom.start}
+                  zoomEnd={bowWaveZoom.end}
+                  onZoomChange={(s, e) => setBowWaveZoom({ start: s, end: e })}
+                  projectName={projectName}
+                  projectNumber={projectNumber}
+                  scenarioConfig={scenarioConfig}
+                />
               </div>
             </div>
           )}

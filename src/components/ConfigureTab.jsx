@@ -43,6 +43,7 @@ export default function ConfigureTab() {
     theme, setTheme,
     accent, setAccent,
     accentB, setAccentB,
+    accentC, setAccentC,
     fontSize, setFontSize,
     fontFamily, setFontFamily,
     resetDefaults,
@@ -52,7 +53,7 @@ export default function ConfigureTab() {
     <div className="flex flex-col gap-6 max-w-2xl">
 
       <Section title="Appearance">
-        <Row label="Theme" hint="Switches between dark and light colour palette">
+        <Row label="Theme" hint="Switches between dark and light color palette">
           <SegmentedControl
             options={[{ value: 'dark', label: 'Dark' }, { value: 'light', label: 'Light' }]}
             value={theme}
@@ -60,7 +61,7 @@ export default function ConfigureTab() {
           />
         </Row>
 
-        <Row label="Accent colour" hint="Used for active tabs, buttons, and highlights">
+        <Row label="Primary Color" hint="Main bars in charts, active buttons, and UI highlights">
           <div className="flex items-center gap-2">
             <input
               type="color"
@@ -72,7 +73,7 @@ export default function ConfigureTab() {
           </div>
         </Row>
 
-        <Row label="Bow wave colour" hint="Used for bow wave bars, reference lines, and scenario tabs">
+        <Row label="Accent Color" hint="Bow wave bars and data date reference lines">
           <div className="flex items-center gap-2">
             <input
               type="color"
@@ -81,6 +82,18 @@ export default function ConfigureTab() {
               className="w-8 h-8 rounded cursor-pointer border border-line bg-transparent"
             />
             <span className="text-xs text-fg-3 font-mono">{accentB}</span>
+          </div>
+        </Row>
+
+        <Row label="Secondary Accent Color" hint="Previous schedule lines in multi-schedule charts">
+          <div className="flex items-center gap-2">
+            <input
+              type="color"
+              value={accentC}
+              onChange={e => setAccentC(e.target.value)}
+              className="w-8 h-8 rounded cursor-pointer border border-line bg-transparent"
+            />
+            <span className="text-xs text-fg-3 font-mono">{accentC}</span>
           </div>
         </Row>
       </Section>

@@ -7,8 +7,6 @@ import DualRangeSlider from './DualRangeSlider'
 import { exportChart } from '../utils/exportChart'
 import { useChartColors } from '../hooks/useChartColors'
 
-const LINE_COLORS = ['#f97316', '#22c55e', '#a855f7', '#ec4899', '#14b8a6', '#eab308', '#f43f5e']
-
 function shortName(fileName, dataDate) {
   const base = fileName.replace(/\.[^.]+$/, '')
   const dd = dataDate
@@ -37,6 +35,7 @@ const CustomTooltip = ({ active, payload, label, unit }) => {
 
 export default function SCurveChart({ sCurveData, unit, zoomStart, zoomEnd, onZoomChange, projectName, projectNumber }) {
   const exportRef = useRef(null)
+  const cc = useChartColors()
   const { monthLabels = [], series = [] } = sCurveData || {}
 
   if (!monthLabels.length || !series.length) return null
@@ -46,14 +45,15 @@ export default function SCurveChart({ sCurveData, unit, zoomStart, zoomEnd, onZo
 
   const toVal = (v) => unit === 'hrs' ? v : v / 8
 
-  // Assign colors — latest = blue, others cycle
+  // Assign colors — latest = primary, others start with accentC then cycle
+  const EXTRA_COLORS = ['#22c55e', '#ec4899', '#14b8a6', '#eab308', '#f43f5e', '#06b6d4']
   let colorIdx = 0
   const seriesColor = {}
   series.forEach(s => {
-    seriesColor[s.id] = s.isLatest ? '#3b82f6' : LINE_COLORS[colorIdx++ % LINE_COLORS.length]
+    if (s.isLatest) { seriesColor[s.id] = cc.accent; return }
+    seriesColor[s.id] = colorIdx === 0 ? cc.accentC : EXTRA_COLORS[(colorIdx - 1) % EXTRA_COLORS.length]
+    colorIdx++
   })
-
-  const cc = useChartColors()
   const chartData = monthLabels.slice(startIdx, endIdx + 1).map(label => {
     const row = { month: label }
     series.forEach(s => {

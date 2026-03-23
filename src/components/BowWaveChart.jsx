@@ -7,8 +7,9 @@ import { formatMonthLabel } from '../utils/buildChartData'
 import DualRangeSlider from './DualRangeSlider'
 import { exportChart } from '../utils/exportChart'
 import { useChartColors } from '../hooks/useChartColors'
+import KpiCards from './KpiCards'
 
-// Colour palette for category bars
+// Color palette for category bars
 const CAT_COLORS = ['#3b82f6', '#22c55e', '#a855f7', '#ec4899', '#14b8a6', '#eab308', '#6366f1', '#f43f5e', '#84cc16', '#06b6d4']
 
 const CustomTooltip = ({ active, payload, label, unit }) => {
@@ -52,6 +53,7 @@ export default function BowWaveChart({
   chartData,
   bowWaveResult,
   unit,
+  onUnitChange,
   baseSchedule,
   groupByColumn,
   onGroupByChange,
@@ -62,8 +64,8 @@ export default function BowWaveChart({
 }) {
   const exportRef = useRef(null)
   const cc = useChartColors()
-  const activeData = categoryChartData ? categoryChartData.chartData : chartData
 
+  const activeData = categoryChartData ? categoryChartData.chartData : chartData
   if (!activeData || activeData.length === 0) return null
 
   const startIdx = zoomStart
@@ -181,6 +183,7 @@ export default function BowWaveChart({
           <ReferenceLine
             x={dataLabel}
             stroke={cc.accentB}
+            strokeWidth={2}
             strokeDasharray="4 4"
             label={{ value: 'Data Date 2', position: 'insideTopRight', fill: cc.accentB, fontSize: 11, offset: 10 }}
           />
@@ -202,7 +205,7 @@ export default function BowWaveChart({
             : [
                 <Bar key="planned" dataKey="planned"
                   name={baseSchedule === 'A' ? 'Planned Work (Schedule 1)' : 'Planned Work (Schedule 2)'}
-                  stackId="a" fill="#3b82f6" radius={[0, 0, 0, 0]} />,
+                  stackId="a" fill={cc.accent} radius={[0, 0, 0, 0]} />,
                 <Bar key="bowWave" dataKey="bowWave" name="Bow Wave" stackId="a"
                   fill={cc.accentB} radius={[4, 4, 0, 0]} />,
               ]
@@ -225,6 +228,14 @@ export default function BowWaveChart({
           <span className="text-xs text-fg-3">Hatched portion = Bow Wave</span>
         </div>
       )}
+
+      {/* KPI summary — included in export */}
+      <div className="border-t border-line-subtle pt-4">
+        <p className="text-xs text-fg-4 uppercase tracking-wide font-medium mb-3">Summary</p>
+        <div className="grid grid-cols-4 gap-3">
+          <KpiCards result={bowWaveResult} unit={unit} onUnitChange={onUnitChange} />
+        </div>
+      </div>
 
       </div>{/* end exportRef */}
 

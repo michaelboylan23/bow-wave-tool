@@ -8,9 +8,6 @@ import DualRangeSlider from './DualRangeSlider'
 import { exportChart } from '../utils/exportChart'
 import { useChartColors } from '../hooks/useChartColors'
 
-// Colour palette for series (latest always uses blue bars; others cycle through these)
-const LINE_COLORS = ['#f97316', '#22c55e', '#a855f7', '#ec4899', '#14b8a6', '#eab308', '#f43f5e']
-
 const CustomTooltip = ({ active, payload, label, unit }) => {
   if (!active || !payload || !payload.length) return null
   const toVal = (v) => unit === 'hrs' ? v : v / 8
@@ -38,6 +35,7 @@ function shortName(fileName, dataDate) {
 
 export default function MultiScheduleChart({ multiSeriesData, unit, baselineId, onBaselineChange, uploadedSchedules, zoomStart, zoomEnd, onZoomChange, projectName, projectNumber }) {
   const exportRef = useRef(null)
+  const cc = useChartColors()
   const { monthLabels = [], series = [] } = multiSeriesData || {}
 
   if (!monthLabels.length || !series.length) return null
@@ -57,23 +55,25 @@ export default function MultiScheduleChart({ multiSeriesData, unit, baselineId, 
   })
 
   // Latest schedule = bars; others = lines
-  const cc = useChartColors()
   const latest   = series.find(s => s.isLatest)
   const baseline = series.find(s => s.isBaseline)
   const others   = series.filter(s => !s.isLatest)
 
-  // Assign colours to non-latest series
+  // Assign colors to non-latest series — accentC leads, then cycle through fixed extras
+  const EXTRA_COLORS = ['#22c55e', '#ec4899', '#14b8a6', '#eab308', '#f43f5e', '#06b6d4']
   let colorIdx = 0
   const seriesColor = {}
   others.forEach(s => {
-    seriesColor[s.id] = s.isBaseline ? '#facc15' : LINE_COLORS[colorIdx++ % LINE_COLORS.length]
+    if (s.isBaseline) { seriesColor[s.id] = '#facc15'; return }
+    seriesColor[s.id] = colorIdx === 0 ? cc.accentC : EXTRA_COLORS[(colorIdx - 1) % EXTRA_COLORS.length]
+    colorIdx++
   })
 
   // Reference lines for each data date
   const dataDateLines = series.map(s => ({
     id:    s.id,
     label: formatMonthLabel(new Date(s.dataDate)),
-    color: s.isLatest ? '#3b82f6' : (seriesColor[s.id] || '#6b7280'),
+    color: s.isLatest ? cc.accent : (seriesColor[s.id] || cc.accentC),
   }))
 
   const handleExport = () => {
@@ -124,11 +124,11 @@ export default function MultiScheduleChart({ multiSeriesData, unit, baselineId, 
       {/* Legend explainer */}
       <div className="flex flex-wrap gap-4 text-xs text-fg-3">
         <span className="flex items-center gap-1.5">
-          <span className="inline-block w-3 h-3 rounded-sm bg-blue-500" />
+          <span className="inline-block w-3 h-3 rounded-sm" style={{ background: cc.accent }} />
           Latest schedule (bars)
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="inline-block w-4 border-t-2 border-gray-400" />
+          <span className="inline-block w-4 border-t-2" style={{ borderColor: cc.accentC }} />
           Previous schedules (lines)
         </span>
         {baseline && (
@@ -174,8 +174,9 @@ export default function MultiScheduleChart({ multiSeriesData, unit, baselineId, 
               key={dl.id}
               x={dl.label}
               stroke={dl.color}
+              strokeWidth={2}
               strokeDasharray="3 3"
-              strokeOpacity={0.5}
+              strokeOpacity={0.7}
             />
           ))}
 
@@ -199,7 +200,7 @@ export default function MultiScheduleChart({ multiSeriesData, unit, baselineId, 
             <Bar
               dataKey={latest.id}
               name={latest.id}
-              fill="#3b82f6"
+              fill={cc.accent}
               radius={[3, 3, 0, 0]}
               maxBarSize={24}
             />
@@ -234,7 +235,7 @@ export default function MultiScheduleChart({ multiSeriesData, unit, baselineId, 
                 className="inline-block w-3 shrink-0"
                 style={{
                   height: s.isLatest ? '12px' : '2px',
-                  background: s.isLatest ? '#3b82f6' : seriesColor[s.id],
+                  background: s.isLatest ? cc.accent : seriesColor[s.id],
                   borderRadius: s.isLatest ? '2px' : '0',
                 }}
               />
@@ -242,7 +243,7 @@ export default function MultiScheduleChart({ multiSeriesData, unit, baselineId, 
                 {s.fileName}
               </span>
               {s.isBaseline && <span className="text-yellow-400 text-xs font-medium">Baseline</span>}
-              {s.isLatest && <span className="text-blue-400 text-xs font-medium">Latest</span>}
+              {s.isLatest && <span className="text-xs font-medium" style={{ color: cc.accent }}>Latest</span>}
               <span className="text-fg-4 shrink-0">
                 {s.dataDate ? new Date(s.dataDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
               </span>

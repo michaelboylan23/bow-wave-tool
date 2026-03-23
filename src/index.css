@@ -19,6 +19,7 @@
   --color-accent-hi:    var(--accent-hi);
   --color-accent-b:     var(--accent-b);
   --color-accent-b-hi:  var(--accent-b-hi);
+  --color-accent-c:     var(--accent-c);
 
   /* Font */
   --font-size-base: var(--fs-base);
@@ -41,6 +42,7 @@
   --accent-hi:    #1d4ed8;
   --accent-b:     #ea580c;
   --accent-b-hi:  #c2410c;
+  --accent-c:     #a855f7;
 
   --fs-base:      15px;
   --font-family:  ui-sans-serif, system-ui, sans-serif;

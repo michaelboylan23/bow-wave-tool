@@ -44,7 +44,7 @@ export default function DualRangeSlider({ min, max, start, end, onStartChange, o
 
         {/* Blue active range */}
         <div
-          className="absolute h-1.5 rounded-full bg-blue-500 pointer-events-none"
+          className="absolute h-1.5 rounded-full bg-accent pointer-events-none"
           style={{ left: `${startPct}%`, right: `${100 - endPct}%` }}
         />
 
@@ -68,13 +68,13 @@ export default function DualRangeSlider({ min, max, start, end, onStartChange, o
 
         {/* Visual start thumb */}
         <div
-          className="absolute w-4 h-4 rounded-full bg-blue-500 shadow-md ring-2 ring-gray-900 pointer-events-none"
+          className="absolute w-4 h-4 rounded-full bg-accent shadow-md ring-2 ring-card pointer-events-none"
           style={{ left: `calc(${startPct}% - 8px)`, zIndex: 6 }}
         />
 
         {/* Visual end thumb */}
         <div
-          className="absolute w-4 h-4 rounded-full bg-blue-500 shadow-md ring-2 ring-gray-900 pointer-events-none"
+          className="absolute w-4 h-4 rounded-full bg-accent shadow-md ring-2 ring-card pointer-events-none"
           style={{ left: `calc(${endPct}% - 8px)`, zIndex: 6 }}
         />
       </div>
