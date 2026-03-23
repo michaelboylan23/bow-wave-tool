@@ -1,7 +1,8 @@
 /* global __APP_VERSION__ */
 import { useEffect, useState } from 'react'
 
-const REPO = 'michaelboylan23/bow-wave-tool'
+const REPO         = 'michaelboylan23/bow-wave-tool'
+const DOWNLOAD_URL = 'https://mbpce-my.sharepoint.com/:f:/p/mboylan/IgCjJUyOOHxzSbDWDH-mY3nLAdF9CCZuatDbBpbvKkFI3RM?e=bpF6Pu'
 
 function parseVersion(v) {
   return v.replace(/^v/, '').split('.').map(Number)
@@ -21,7 +22,6 @@ export default function VersionBanner() {
   const appVersion = __APP_VERSION__
   const [status, setStatus]               = useState('checking') // checking | up-to-date | outdated | error
   const [latestVersion, setLatestVersion] = useState('')
-  const [downloadUrl, setDownloadUrl]     = useState('')
   const [visible, setVisible]             = useState(true)
 
   useEffect(() => {
@@ -32,7 +32,7 @@ export default function VersionBanner() {
         const tag = data.tag_name
         if (!tag) { setStatus('error'); return }
         setLatestVersion(tag.replace(/^v/, ''))
-        setDownloadUrl(data.html_url)
+        setDownloadUrl(DOWNLOAD_URL)
         if (isNewer(tag, appVersion)) {
           setStatus('outdated')
         } else {
@@ -69,7 +69,7 @@ export default function VersionBanner() {
       </span>
       <div className="flex items-center gap-3 shrink-0">
         <a
-          href={downloadUrl}
+          href={DOWNLOAD_URL}
           target="_blank"
           rel="noreferrer"
           className="text-xs bg-amber-600 hover:bg-amber-500 text-white font-medium px-3 py-1 rounded-lg transition-colors"
