@@ -14,13 +14,13 @@ function Step({ number, title, children }) {
   return (
     <section className="flex gap-5">
       <div className="flex flex-col items-center gap-2 shrink-0">
-        <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-bold shrink-0">
+        <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-fg text-sm font-bold shrink-0">
           {number}
         </div>
-        <div className="flex-1 w-px bg-gray-800" />
+        <div className="flex-1 w-px bg-control" />
       </div>
       <div className="flex flex-col gap-3 pb-8 flex-1 min-w-0">
-        <h3 className="text-base font-semibold text-white mt-1">{title}</h3>
+        <h3 className="text-base font-semibold text-fg mt-1">{title}</h3>
         {children}
       </div>
     </section>
@@ -37,7 +37,7 @@ function Note({ children }) {
 
 function Tag({ children }) {
   return (
-    <span className="inline-block bg-gray-800 border border-gray-700 text-gray-300 font-mono text-xs px-2 py-0.5 rounded">
+    <span className="inline-block bg-control border border-line text-fg-2 font-mono text-xs px-2 py-0.5 rounded">
       {children}
     </span>
   )
@@ -47,23 +47,23 @@ export default function Instructions() {
   return (
     <div className="max-w-3xl">
       <h2 className="text-xl font-bold mb-1">How to Use the Bow Wave Analysis Tool</h2>
-      <p className="text-gray-400 mb-8 text-sm leading-relaxed">
+      <p className="text-fg-3 mb-8 text-sm leading-relaxed">
         This tool accepts multiple Primavera P6 schedule snapshots and supports two types of analysis:
-        a <span className="text-white font-medium">Two-Schedule Bow Wave</span> (comparing two snapshots to quantify
+        a <span className="text-fg font-medium">Two-Schedule Bow Wave</span> (comparing two snapshots to quantify
         unfinished planned work and visualize redistribution scenarios) and a{' '}
-        <span className="text-white font-medium">Multi-Schedule Trend</span> (tracking workload and progress across
+        <span className="text-fg font-medium">Multi-Schedule Trend</span> (tracking workload and progress across
         three or more schedule snapshots over time).
       </p>
 
       <div className="flex flex-col">
 
         <Step number="1" title="Export Schedule Snapshots from P6">
-          <p className="text-gray-300 text-sm leading-relaxed">
+          <p className="text-fg-2 text-sm leading-relaxed">
             Export one snapshot per schedule update you want to analyse. In P6, go to{' '}
-            <span className="text-white font-medium">File → Export</span> and choose{' '}
-            <span className="text-white font-medium">CSV</span>,{' '}
-            <span className="text-white font-medium">Excel (.xlsx)</span>, or{' '}
-            <span className="text-white font-medium">XER</span>.
+            <span className="text-fg font-medium">File → Export</span> and choose{' '}
+            <span className="text-fg font-medium">CSV</span>,{' '}
+            <span className="text-fg font-medium">Excel (.xlsx)</span>, or{' '}
+            <span className="text-fg font-medium">XER</span>.
             For a basic bow wave comparison you need at least two files; for trend analysis upload as many snapshots as you have.
           </p>
           <Note>
@@ -73,25 +73,25 @@ export default function Instructions() {
         </Step>
 
         <Step number="2" title="Include the Required Columns">
-          <p className="text-gray-400 text-sm mb-2">
+          <p className="text-fg-3 text-sm mb-2">
             Your export must include the following fields. The tool will attempt to auto-match column names —
             if any can't be matched you'll be prompted to map them manually.
           </p>
-          <div className="overflow-x-auto rounded-xl border border-gray-800">
+          <div className="overflow-x-auto rounded-xl border border-line-subtle">
             <table className="w-full text-sm border-collapse">
               <thead>
-                <tr className="bg-gray-900 border-b border-gray-800">
-                  <th className="px-4 py-2.5 text-left text-gray-400 font-medium text-xs uppercase tracking-wide">Field (P6)</th>
-                  <th className="px-4 py-2.5 text-left text-gray-400 font-medium text-xs uppercase tracking-wide">Label</th>
-                  <th className="px-4 py-2.5 text-left text-gray-400 font-medium text-xs uppercase tracking-wide">Why It's Needed</th>
+                <tr className="bg-card border-b border-line-subtle">
+                  <th className="px-4 py-2.5 text-left text-fg-3 font-medium text-xs uppercase tracking-wide">Field (P6)</th>
+                  <th className="px-4 py-2.5 text-left text-fg-3 font-medium text-xs uppercase tracking-wide">Label</th>
+                  <th className="px-4 py-2.5 text-left text-fg-3 font-medium text-xs uppercase tracking-wide">Why It's Needed</th>
                 </tr>
               </thead>
               <tbody>
                 {REQUIRED_COLUMNS.map((col, i) => (
-                  <tr key={col.field} className={`border-b border-gray-800/50 ${i % 2 === 0 ? '' : 'bg-gray-900/30'}`}>
+                  <tr key={col.field} className={`border-b border-line-subtle/50 ${i % 2 === 0 ? '' : 'bg-card/30'}`}>
                     <td className="px-4 py-2.5 font-mono text-blue-400 text-xs whitespace-nowrap">{col.field}</td>
-                    <td className="px-4 py-2.5 text-white text-xs whitespace-nowrap">{col.label}</td>
-                    <td className="px-4 py-2.5 text-gray-400 text-xs">{col.why}</td>
+                    <td className="px-4 py-2.5 text-fg text-xs whitespace-nowrap">{col.label}</td>
+                    <td className="px-4 py-2.5 text-fg-3 text-xs">{col.why}</td>
                   </tr>
                 ))}
               </tbody>
@@ -100,21 +100,21 @@ export default function Instructions() {
         </Step>
 
         <Step number="3" title="Enter a Project Name and Number">
-          <p className="text-gray-300 text-sm leading-relaxed">
-            On the <span className="text-white font-medium">Analysis</span> tab, enter a project name and number before uploading files.
+          <p className="text-fg-2 text-sm leading-relaxed">
+            On the <span className="text-fg font-medium">Analysis</span> tab, enter a project name and number before uploading files.
             These are required and will be used to name your saved project file.
           </p>
         </Step>
 
         <Step number="4" title="Upload Your Schedule Files and Confirm Data Dates">
-          <p className="text-gray-300 text-sm leading-relaxed">
+          <p className="text-fg-2 text-sm leading-relaxed">
             Drag and drop or browse to upload your schedule files — you can add as many as you like in one go or add them one at a time.
-            Each file needs a <span className="text-white font-medium">Data Date</span> — the as-of date through which progress was recorded.
+            Each file needs a <span className="text-fg font-medium">Data Date</span> — the as-of date through which progress was recorded.
             For XER files this is extracted automatically. For CSV and Excel, enter it manually using the date picker next to each file.
           </p>
-          <p className="text-gray-300 text-sm leading-relaxed">
-            Use the <span className="text-white font-medium">▲ / ▼</span> buttons to reorder schedules
-            or <span className="text-white font-medium">✕</span> to remove one before continuing.
+          <p className="text-fg-2 text-sm leading-relaxed">
+            Use the <span className="text-fg font-medium">▲ / ▼</span> buttons to reorder schedules
+            or <span className="text-fg font-medium">✕</span> to remove one before continuing.
             All schedules must have a Data Date before you can proceed.
           </p>
           <Note>
@@ -123,19 +123,19 @@ export default function Instructions() {
         </Step>
 
         <Step number="5" title="Map Columns">
-          <p className="text-gray-300 text-sm leading-relaxed">
+          <p className="text-fg-2 text-sm leading-relaxed">
             The tool will auto-match columns where possible —
             green <span className="text-green-400 font-medium">✓ Matched</span> means the column was found automatically.
             Any unmatched fields shown as <span className="text-yellow-400 font-medium">⚠ Needed</span> must be
             selected from the dropdown before you can continue.
             This single mapping is applied to all uploaded schedules.
-            Click <span className="text-white font-medium">Confirm Mapping & Continue</span> when all fields are matched.
+            Click <span className="text-fg font-medium">Confirm Mapping & Continue</span> when all fields are matched.
           </p>
         </Step>
 
         <Step number="6" title="Run an Analysis">
-          <p className="text-gray-300 text-sm leading-relaxed">
-            Back on the <span className="text-white font-medium">Analysis</span> tab you'll see your loaded schedules.
+          <p className="text-fg-2 text-sm leading-relaxed">
+            Back on the <span className="text-fg font-medium">Analysis</span> tab you'll see your loaded schedules.
             Choose the type of analysis to run:
           </p>
           <ul className="flex flex-col gap-1.5 mt-1">
@@ -145,7 +145,7 @@ export default function Instructions() {
             ].map(([label, desc]) => (
               <li key={label} className="flex gap-2 text-sm">
                 <span className="text-blue-400 mt-0.5 shrink-0">→</span>
-                <span className="text-gray-300"><span className="text-white font-medium">{label}</span> — {desc}</span>
+                <span className="text-fg-2"><span className="text-fg font-medium">{label}</span> — {desc}</span>
               </li>
             ))}
           </ul>
@@ -155,7 +155,7 @@ export default function Instructions() {
         </Step>
 
         <Step number="7" title="Review Results">
-          <p className="text-gray-300 text-sm leading-relaxed">
+          <p className="text-fg-2 text-sm leading-relaxed">
             Results appear in one or both of the following tabs:
           </p>
           <ul className="flex flex-col gap-2 mt-1">
@@ -171,12 +171,12 @@ export default function Instructions() {
               ]],
             ].map(([tab, items]) => (
               <li key={tab} className="flex flex-col gap-1 text-sm">
-                <span className="text-white font-medium">{tab}</span>
+                <span className="text-fg font-medium">{tab}</span>
                 <ul className="flex flex-col gap-1 pl-3">
                   {items.map(item => (
                     <li key={item} className="flex gap-2 text-sm">
                       <span className="text-blue-400 mt-0.5 shrink-0">→</span>
-                      <span className="text-gray-400">{item}</span>
+                      <span className="text-fg-3">{item}</span>
                     </li>
                   ))}
                 </ul>
@@ -186,14 +186,14 @@ export default function Instructions() {
         </Step>
 
         <Step number="8" title="Filter Activities (Optional)">
-          <p className="text-gray-300 text-sm leading-relaxed">
-            Both result tabs include a <span className="text-white font-medium">Filters</span> bar at the top.
-            Click <span className="text-white font-medium">+ Add filter</span> to select any column (e.g. CLIN, phase, responsibility) —
+          <p className="text-fg-2 text-sm leading-relaxed">
+            Both result tabs include a <span className="text-fg font-medium">Filters</span> bar at the top.
+            Click <span className="text-fg font-medium">+ Add filter</span> to select any column (e.g. CLIN, phase, responsibility) —
             only values present across all loaded schedules will appear as options.
             Uncheck values to exclude those activities, then click{' '}
-            <span className="text-white font-medium">Apply Filters</span> to instantly recalculate.
+            <span className="text-fg font-medium">Apply Filters</span> to instantly recalculate.
             Filters apply to all schedules simultaneously. Click the{' '}
-            <span className="text-white font-medium">✕</span> next to a filter chip to remove that column entirely.
+            <span className="text-fg font-medium">✕</span> next to a filter chip to remove that column entirely.
           </p>
           <Note>
             Filters are applied at analysis time — your original data is always preserved and you can add, change, or
@@ -202,20 +202,20 @@ export default function Instructions() {
         </Step>
 
         <Step number="9" title="Explore Activity Data">
-          <p className="text-gray-300 text-sm leading-relaxed">
-            The <span className="text-white font-medium">Schedule Data</span> tab shows the full activity table for each schedule.
+          <p className="text-fg-2 text-sm leading-relaxed">
+            The <span className="text-fg font-medium">Schedule Data</span> tab shows the full activity table for each schedule.
             You can search, filter by status, filter by date range, sort any column, and use the{' '}
-            <span className="text-white font-medium">Columns</span> button to show, hide, and reorder columns.
+            <span className="text-fg font-medium">Columns</span> button to show, hide, and reorder columns.
             All columns from your original file are shown — not just the required fields.
           </p>
         </Step>
 
         <Step number="10" title="Save Your Work">
-          <p className="text-gray-300 text-sm leading-relaxed">
-            Click <span className="text-white font-medium">Save Project</span> in the header to export the full session as a{' '}
+          <p className="text-fg-2 text-sm leading-relaxed">
+            Click <span className="text-fg font-medium">Save Project</span> in the header to export the full session as a{' '}
             <Tag>.bwt</Tag> file. This includes your schedule data, filter configuration, scenario settings, and analysis results.
-            To restore a saved session, go to the <span className="text-white font-medium">Analysis</span> tab and use{' '}
-            <span className="text-white font-medium">Load Existing Project</span>.
+            To restore a saved session, go to the <span className="text-fg font-medium">Analysis</span> tab and use{' '}
+            <span className="text-fg font-medium">Load Existing Project</span>.
           </p>
           <Note>
             .bwt files contain your full activity data. Keep them in a secure location if your schedule data is sensitive.

@@ -40,8 +40,8 @@ export default function ScenarioTabs({ bowWaveResult, onScenarioChange, scenario
             onClick={() => handleScenarioChange(s.key)}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors
               ${activeScenario === s.key
-                ? 'bg-orange-600 text-white'
-                : 'bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700'}`}
+                ? 'bg-accent-b text-fg'
+                : 'bg-control text-fg-3 hover:text-fg hover:bg-muted'}`}
           >
             {s.label}
           </button>
@@ -49,21 +49,21 @@ export default function ScenarioTabs({ bowWaveResult, onScenarioChange, scenario
       </div>
 
       {/* Description */}
-      <p className="text-sm text-gray-400">{active.desc}</p>
+      <p className="text-sm text-fg-3">{active.desc}</p>
 
       {/* Distribute to End — end date slider */}
       {activeScenario === 'distribute-to-end' && (
         <div className="flex flex-col gap-1 max-w-xs">
-          <label className="text-xs text-gray-400 font-medium">Adjusted Project End Date</label>
+          <label className="text-xs text-fg-3 font-medium">Adjusted Project End Date</label>
           <input
             type="date"
             value={endDateOverride}
             onChange={(e) => handleEndDateChange(e.target.value)}
-            className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm
-              focus:outline-none focus:border-orange-500 transition-colors"
+            className="bg-card border border-line rounded-lg px-3 py-2 text-fg text-sm
+              focus:outline-none focus:border-accent-b transition-colors"
           />
           {!endDateOverride && (
-            <p className="text-xs text-gray-500">Defaulting to latest activity finish date.</p>
+            <p className="text-xs text-fg-4">Defaulting to latest activity finish date.</p>
           )}
         </div>
       )}
@@ -71,16 +71,16 @@ export default function ScenarioTabs({ bowWaveResult, onScenarioChange, scenario
       {/* Distribute to Recovery — recovery date picker */}
       {activeScenario === 'distribute-to-recovery' && (
         <div className="flex flex-col gap-1 max-w-xs">
-          <label className="text-xs text-gray-400 font-medium">Recovery Date</label>
+          <label className="text-xs text-fg-3 font-medium">Recovery Date</label>
           <input
             type="date"
             value={recoveryDate}
             onChange={(e) => handleRecoveryDateChange(e.target.value)}
-            className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm
-              focus:outline-none focus:border-orange-500 transition-colors"
+            className="bg-card border border-line rounded-lg px-3 py-2 text-fg text-sm
+              focus:outline-none focus:border-accent-b transition-colors"
           />
           {!recoveryDate && (
-            <p className="text-xs text-gray-500">Defaulting to latest data date if not set.</p>
+            <p className="text-xs text-fg-4">Defaulting to latest data date if not set.</p>
           )}
         </div>
       )}

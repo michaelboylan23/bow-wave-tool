@@ -5,6 +5,7 @@ import {
 } from 'recharts'
 import DualRangeSlider from './DualRangeSlider'
 import { exportChart } from '../utils/exportChart'
+import { useChartColors } from '../hooks/useChartColors'
 
 const LINE_COLORS = ['#f97316', '#22c55e', '#a855f7', '#ec4899', '#14b8a6', '#eab308', '#f43f5e']
 
@@ -21,8 +22,8 @@ const CustomTooltip = ({ active, payload, label, unit }) => {
   const toVal = (v) => unit === 'hrs' ? v : v / 8
   const u = unit === 'hrs' ? 'hrs' : 'days'
   return (
-    <div className="bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm max-w-xs">
-      <p className="text-white font-semibold mb-2">{label}</p>
+    <div className="bg-card border border-line rounded-lg p-3 text-sm max-w-xs">
+      <p className="text-fg font-semibold mb-2">{label}</p>
       {payload.map(p => (
         p.value != null && (
           <p key={p.dataKey} style={{ color: p.stroke }} className="text-xs">
@@ -52,6 +53,7 @@ export default function SCurveChart({ sCurveData, unit, zoomStart, zoomEnd, onZo
     seriesColor[s.id] = s.isLatest ? '#3b82f6' : LINE_COLORS[colorIdx++ % LINE_COLORS.length]
   })
 
+  const cc = useChartColors()
   const chartData = monthLabels.slice(startIdx, endIdx + 1).map(label => {
     const row = { month: label }
     series.forEach(s => {
@@ -69,19 +71,19 @@ export default function SCurveChart({ sCurveData, unit, zoomStart, zoomEnd, onZo
   }
 
   return (
-    <div className="bg-gray-900 rounded-xl p-6 flex flex-col gap-6">
+    <div className="bg-card rounded-xl p-6 flex flex-col gap-6">
       <div ref={exportRef} className="flex flex-col gap-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h3 className="text-sm font-semibold text-gray-300">S-Curve — Cumulative Planned Work</h3>
-          <p className="text-xs text-gray-500 mt-1">
+          <h3 className="text-sm font-semibold text-fg-2">S-Curve — Cumulative Planned Work</h3>
+          <p className="text-xs text-fg-4 mt-1">
             Cumulative planned hours per schedule. Diverging end-points indicate scope growth between updates.
           </p>
         </div>
         <button
           onClick={handleExport}
-          className="print:hidden flex items-center gap-1.5 px-3 py-1 rounded-lg bg-gray-800 hover:bg-gray-700
-            text-gray-400 hover:text-white text-xs font-medium transition-colors"
+          className="print:hidden flex items-center gap-1.5 px-3 py-1 rounded-lg bg-control hover:bg-muted
+            text-fg-3 hover:text-fg text-xs font-medium transition-colors"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
             <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
@@ -91,22 +93,22 @@ export default function SCurveChart({ sCurveData, unit, zoomStart, zoomEnd, onZo
       </div>
 
       <ResponsiveContainer key={unit} width="100%" height={380}>
-        <ComposedChart data={chartData} margin={{ top: 10, right: 20, left: 20, bottom: 60 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+        <ComposedChart data={chartData} margin={{ top: 10, right: 20, left: 20, bottom: 80 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke={cc.grid} />
           <XAxis
             dataKey="month"
-            tick={{ fill: '#9ca3af', fontSize: 11 }}
+            tick={{ fill: cc.tick, fontSize: 11 }}
             angle={-45}
             textAnchor="end"
             interval="preserveStartEnd"
           />
           <YAxis
-            tick={{ fill: '#9ca3af', fontSize: 11 }}
+            tick={{ fill: cc.tick, fontSize: 11 }}
             label={{
               value: unit === 'hrs' ? 'Cumulative Hours' : 'Cumulative Work Days',
               angle: -90,
               position: 'insideLeft',
-              fill: '#9ca3af',
+              fill: cc.tick,
               fontSize: 12,
             }}
           />
@@ -116,7 +118,7 @@ export default function SCurveChart({ sCurveData, unit, zoomStart, zoomEnd, onZo
               const s = series.find(s => s.id === value)
               return s ? shortName(s.fileName, s.dataDate) : value
             }}
-            wrapperStyle={{ paddingTop: '20px', color: '#9ca3af', fontSize: '11px' }}
+            wrapperStyle={{ paddingTop: '20px', color: cc.tick, fontSize: '11px' }}
           />
 
           {series.map(s => (
@@ -135,8 +137,8 @@ export default function SCurveChart({ sCurveData, unit, zoomStart, zoomEnd, onZo
       </ResponsiveContainer>
       </div>{/* end exportRef */}
 
-      <div className="flex flex-col gap-3 border-t border-gray-800 pt-4">
-        <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Zoom</p>
+      <div className="flex flex-col gap-3 border-t border-line-subtle pt-4">
+        <p className="text-xs text-fg-3 font-medium uppercase tracking-wide">Zoom</p>
         <DualRangeSlider
           min={0}
           max={monthLabels.length - 1}

@@ -40,23 +40,23 @@ export default function BugReportModal({ onClose }) {
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-      <div className="bg-gray-900 border border-gray-700 rounded-2xl p-8 max-w-md w-full mx-4 flex flex-col gap-5">
+      <div className="bg-card border border-line rounded-2xl p-8 max-w-md w-full mx-4 flex flex-col gap-5">
 
         <div className="flex items-center justify-between">
-          <h2 className="text-white font-bold text-lg">Report a Bug</h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors text-sm">✕</button>
+          <h2 className="text-fg font-bold text-lg">Report a Bug</h2>
+          <button onClick={onClose} className="text-fg-4 hover:text-fg transition-colors text-sm">✕</button>
         </div>
 
         {status === 'success' ? (
           <div className="flex flex-col items-center gap-3 py-4">
             <span className="text-green-400 text-3xl">✓</span>
-            <p className="text-white font-medium">Bug report submitted</p>
-            <p className="text-gray-400 text-sm text-center">Thanks — it's been logged to GitHub Issues.</p>
+            <p className="text-fg font-medium">Bug report submitted</p>
+            <p className="text-fg-3 text-sm text-center">Thanks — it's been logged to GitHub Issues.</p>
           </div>
         ) : (
           <>
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-gray-400 font-medium uppercase tracking-wide">
+              <label className="text-xs text-fg-3 font-medium uppercase tracking-wide">
                 Title <span className="text-red-400">*</span>
               </label>
               <input
@@ -64,13 +64,13 @@ export default function BugReportModal({ onClose }) {
                 value={title}
                 onChange={e => setTitle(e.target.value)}
                 placeholder="Brief summary of the issue"
-                className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm
-                  placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-colors"
+                className="bg-control border border-line rounded-lg px-3 py-2 text-fg text-sm
+                  placeholder-gray-600 focus:outline-none focus:border-accent transition-colors"
               />
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-gray-400 font-medium uppercase tracking-wide">
+              <label className="text-xs text-fg-3 font-medium uppercase tracking-wide">
                 Description & Steps to Reproduce
               </label>
               <textarea
@@ -78,13 +78,13 @@ export default function BugReportModal({ onClose }) {
                 onChange={e => setDescription(e.target.value)}
                 placeholder="What happened? How can it be reproduced?"
                 rows={5}
-                className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm
-                  placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-colors resize-none"
+                className="bg-control border border-line rounded-lg px-3 py-2 text-fg text-sm
+                  placeholder-gray-600 focus:outline-none focus:border-accent transition-colors resize-none"
               />
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-gray-400 font-medium uppercase tracking-wide">
+              <label className="text-xs text-fg-3 font-medium uppercase tracking-wide">
                 Your Name / Contact <span className="text-gray-600">(optional)</span>
               </label>
               <input
@@ -92,8 +92,8 @@ export default function BugReportModal({ onClose }) {
                 value={contact}
                 onChange={e => setContact(e.target.value)}
                 placeholder="So I know who to follow up with"
-                className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm
-                  placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-colors"
+                className="bg-control border border-line rounded-lg px-3 py-2 text-fg text-sm
+                  placeholder-gray-600 focus:outline-none focus:border-accent transition-colors"
               />
             </div>
 
@@ -105,14 +105,14 @@ export default function BugReportModal({ onClose }) {
               <button
                 onClick={handleSubmit}
                 disabled={!canSubmit}
-                className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2 rounded-lg
+                className="flex-1 bg-accent hover:bg-blue-500 text-fg font-semibold py-2 rounded-lg
                   text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {status === 'submitting' ? 'Submitting…' : 'Submit Report'}
               </button>
               <button
                 onClick={onClose}
-                className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold py-2
+                className="flex-1 bg-control hover:bg-muted text-fg-2 font-semibold py-2
                   rounded-lg text-sm transition-colors"
               >
                 Cancel

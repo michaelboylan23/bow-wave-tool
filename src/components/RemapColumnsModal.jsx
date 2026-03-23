@@ -5,8 +5,8 @@ import { parseFile } from '../parsers/parseFile'
 function Spinner() {
   return (
     <div className="flex flex-col items-center justify-center gap-3 py-8">
-      <div className="w-8 h-8 border-4 border-gray-700 border-t-blue-500 rounded-full animate-spin" />
-      <p className="text-gray-400 text-sm">Re-parsing schedules…</p>
+      <div className="w-8 h-8 border-4 border-line border-t-blue-500 rounded-full animate-spin" />
+      <p className="text-fg-3 text-sm">Re-parsing schedules…</p>
     </div>
   )
 }
@@ -48,44 +48,44 @@ export default function RemapColumnsModal({ headers, currentMapping, rawFiles, o
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-      <div className="bg-gray-900 border border-gray-700 rounded-2xl p-8 max-w-2xl w-full mx-4 flex flex-col gap-6 max-h-[90vh] overflow-y-auto">
+      <div className="bg-card border border-line rounded-2xl p-8 max-w-2xl w-full mx-4 flex flex-col gap-6 max-h-[90vh] overflow-y-auto">
 
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-white font-bold text-lg">Remap Columns</h2>
-            <p className="text-gray-400 text-sm mt-0.5">
+            <h2 className="text-fg font-bold text-lg">Remap Columns</h2>
+            <p className="text-fg-3 text-sm mt-0.5">
               Adjust the column mapping and re-parse all {rawFiles.length} uploaded schedules.
             </p>
           </div>
-          <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors text-sm ml-4 shrink-0">✕</button>
+          <button onClick={onClose} className="text-fg-4 hover:text-fg transition-colors text-sm ml-4 shrink-0">✕</button>
         </div>
 
         {loading ? <Spinner /> : (
           <>
-            <div className="bg-gray-900 rounded-xl overflow-hidden border border-gray-800">
+            <div className="bg-card rounded-xl overflow-hidden border border-line-subtle">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-gray-800">
-                    <th className="px-4 py-3 text-left text-gray-300 font-semibold text-xs">Required Field</th>
-                    <th className="px-4 py-3 text-left text-gray-300 font-semibold text-xs">Your Column</th>
-                    <th className="px-4 py-3 text-left text-gray-300 font-semibold text-xs">Status</th>
+                  <tr className="bg-control">
+                    <th className="px-4 py-3 text-left text-fg-2 font-semibold text-xs">Required Field</th>
+                    <th className="px-4 py-3 text-left text-fg-2 font-semibold text-xs">Your Column</th>
+                    <th className="px-4 py-3 text-left text-fg-2 font-semibold text-xs">Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {REQUIRED_FIELDS.map((field, i) => {
                     const value = mapping[field.key]
                     return (
-                      <tr key={field.key} className={i % 2 === 0 ? 'bg-gray-900' : 'bg-gray-800/50'}>
+                      <tr key={field.key} className={i % 2 === 0 ? 'bg-card' : 'bg-control/50'}>
                         <td className="px-4 py-3">
-                          <p className="text-white font-medium text-xs">{field.label}</p>
-                          <p className="text-gray-500 font-mono text-xs">{field.key}</p>
+                          <p className="text-fg font-medium text-xs">{field.label}</p>
+                          <p className="text-fg-4 font-mono text-xs">{field.key}</p>
                         </td>
                         <td className="px-4 py-3">
                           <select
                             value={value || ''}
                             onChange={e => setMapping(prev => ({ ...prev, [field.key]: e.target.value || null }))}
-                            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5
-                              text-white text-xs focus:outline-none focus:border-blue-500 transition-colors"
+                            className="w-full bg-control border border-line rounded-lg px-2 py-1.5
+                              text-fg text-xs focus:outline-none focus:border-accent transition-colors"
                           >
                             <option value="">— select —</option>
                             {[...headers].sort((a, b) => a.localeCompare(b)).map(h => (
@@ -122,14 +122,14 @@ export default function RemapColumnsModal({ headers, currentMapping, rawFiles, o
                 onClick={handleConfirm}
                 disabled={!complete}
                 className={`flex-1 py-2.5 rounded-xl font-semibold text-sm transition-colors
-                  ${complete ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-gray-800 text-gray-500 cursor-not-allowed'}`}
+                  ${complete ? 'bg-accent hover:bg-blue-500 text-fg' : 'bg-control text-fg-4 cursor-not-allowed'}`}
               >
                 {complete ? 'Confirm & Re-parse' : 'Please map all required fields'}
               </button>
               <button
                 onClick={onClose}
-                className="px-6 py-2.5 rounded-xl font-semibold text-sm bg-gray-800 hover:bg-gray-700
-                  text-gray-300 hover:text-white transition-colors"
+                className="px-6 py-2.5 rounded-xl font-semibold text-sm bg-control hover:bg-muted
+                  text-fg-2 hover:text-fg transition-colors"
               >
                 Cancel
               </button>

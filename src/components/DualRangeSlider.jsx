@@ -40,7 +40,7 @@ export default function DualRangeSlider({ min, max, start, end, onStartChange, o
         onPointerMove={handlePointerMove}
       >
         {/* Grey base track */}
-        <div className="absolute left-0 right-0 h-1.5 rounded-full bg-gray-700" />
+        <div className="absolute left-0 right-0 h-1.5 rounded-full bg-muted" />
 
         {/* Blue active range */}
         <div
@@ -80,7 +80,7 @@ export default function DualRangeSlider({ min, max, start, end, onStartChange, o
       </div>
 
       {/* Labels */}
-      <div className="flex justify-between text-xs text-gray-400">
+      <div className="flex justify-between text-xs text-fg-3">
         <span>{startLabel}</span>
         <span>{endLabel}</span>
       </div>

@@ -17,6 +17,7 @@ import VersionBanner from './components/VersionBanner'
 import BugReportModal from './components/BugReportModal'
 import RemapColumnsModal from './components/RemapColumnsModal'
 import { trackOpen } from './utils/trackUsage'
+import ConfigureTab from './components/ConfigureTab'
 import {
   EXAMPLE_SCHEDULE_A, EXAMPLE_SCHEDULE_B,
   EXAMPLE_DATA_DATE_A, EXAMPLE_DATA_DATE_B,
@@ -122,24 +123,24 @@ export default function App() {
   )
 
   const multiSeriesData = useMemo(() =>
-    analysisMode === 'multi-schedule' && hasSchedules
+    multiScheduleRun && hasSchedules
       ? buildMultiSeriesData(uploadedSchedules, baselineId)
       : null,
-    [uploadedSchedules, analysisMode, hasSchedules, baselineId]
+    [uploadedSchedules, multiScheduleRun, hasSchedules, baselineId]
   )
 
   const bowWaveMagnitudeData = useMemo(() =>
-    analysisMode === 'multi-schedule' && hasSchedules
+    multiScheduleRun && hasSchedules
       ? buildBowWaveMagnitudeData(uploadedSchedules)
       : null,
-    [uploadedSchedules, analysisMode, hasSchedules]
+    [uploadedSchedules, multiScheduleRun, hasSchedules]
   )
 
   const sCurveData = useMemo(() =>
-    analysisMode === 'multi-schedule' && hasSchedules
+    multiScheduleRun && hasSchedules
       ? buildSCurveData(uploadedSchedules)
       : null,
-    [uploadedSchedules, analysisMode, hasSchedules]
+    [uploadedSchedules, multiScheduleRun, hasSchedules]
   )
 
   const categoryChartData = useMemo(() => {
@@ -460,7 +461,7 @@ export default function App() {
       earlyDate: EXAMPLE_DATA_DATE_A, lateDate: EXAMPLE_DATA_DATE_B,
     })
     setBaselineId(null)
-    setMultiScheduleRun(false)
+    setMultiScheduleRun(true)
     setActiveTab('Bow Wave')
   }
 
@@ -509,10 +510,11 @@ export default function App() {
     { key: 'Trend',         label: 'Multi-Schedule Trend',  show: hasMultiResult },
     { key: 'Schedule Data', label: 'Schedule Data',         show: hasAnalysis },
     { key: 'Example',       label: 'Example Project',       show: true },
+    { key: 'Configure',     label: 'Configure',             show: true },
   ]
 
   return (
-    <div className="h-screen bg-gray-950 text-white flex flex-col overflow-hidden">
+    <div className="h-screen bg-bg text-fg flex flex-col overflow-hidden">
 
       <Header
         projectName={projectName}
@@ -543,16 +545,16 @@ export default function App() {
       {/* ── Confirm New Project ── */}
       {confirmingNew && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-gray-900 border border-gray-700 rounded-2xl p-8 max-w-sm w-full mx-4 flex flex-col gap-4">
-            <h2 className="text-white font-bold text-lg">Start New Project?</h2>
-            <p className="text-gray-400 text-sm">All unsaved analysis data will be cleared.</p>
+          <div className="bg-card border border-line rounded-2xl p-8 max-w-sm w-full mx-4 flex flex-col gap-4">
+            <h2 className="text-fg font-bold text-lg">Start New Project?</h2>
+            <p className="text-fg-3 text-sm">All unsaved analysis data will be cleared.</p>
             <div className="flex gap-3">
               <button onClick={confirmNew}
-                className="flex-1 bg-red-600 hover:bg-red-500 text-white font-semibold py-2 rounded-lg text-sm transition-colors">
+                className="flex-1 bg-red-600 hover:bg-red-500 text-fg font-semibold py-2 rounded-lg text-sm transition-colors">
                 Yes, Start New
               </button>
               <button onClick={() => setConfirmingNew(false)}
-                className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold py-2 rounded-lg text-sm transition-colors">
+                className="flex-1 bg-control hover:bg-muted text-fg-2 font-semibold py-2 rounded-lg text-sm transition-colors">
                 Cancel
               </button>
             </div>
@@ -563,18 +565,18 @@ export default function App() {
       {/* ── Confirm Overwrite ── */}
       {confirmingOverwrite && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-gray-900 border border-gray-700 rounded-2xl p-8 max-w-sm w-full mx-4 flex flex-col gap-4">
-            <h2 className="text-white font-bold text-lg">Replace Uploaded Schedules?</h2>
-            <p className="text-gray-400 text-sm">
+          <div className="bg-card border border-line rounded-2xl p-8 max-w-sm w-full mx-4 flex flex-col gap-4">
+            <h2 className="text-fg font-bold text-lg">Replace Uploaded Schedules?</h2>
+            <p className="text-fg-3 text-sm">
               This will replace all currently uploaded schedules and clear any existing analysis results.
             </p>
             <div className="flex gap-3">
               <button onClick={confirmOverwrite}
-                className="flex-1 bg-orange-600 hover:bg-orange-500 text-white font-semibold py-2 rounded-lg text-sm transition-colors">
+                className="flex-1 bg-accent-b hover:bg-orange-500 text-fg font-semibold py-2 rounded-lg text-sm transition-colors">
                 Yes, Replace
               </button>
               <button onClick={() => { setConfirmingOverwrite(false); setPendingUpload(null) }}
-                className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold py-2 rounded-lg text-sm transition-colors">
+                className="flex-1 bg-control hover:bg-muted text-fg-2 font-semibold py-2 rounded-lg text-sm transition-colors">
                 Cancel
               </button>
             </div>
@@ -585,16 +587,16 @@ export default function App() {
       {/* ── Edit Data Dates Modal (two-schedule mode) ── */}
       {editingDates && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-gray-900 border border-gray-700 rounded-2xl p-8 max-w-sm w-full mx-4 flex flex-col gap-6">
-            <h2 className="text-white font-bold text-lg">Edit Data Dates</h2>
+          <div className="bg-card border border-line rounded-2xl p-8 max-w-sm w-full mx-4 flex flex-col gap-6">
+            <h2 className="text-fg font-bold text-lg">Edit Data Dates</h2>
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-1">
-                <label className="text-xs text-gray-400 font-medium uppercase tracking-wide">
+                <label className="text-xs text-fg-3 font-medium uppercase tracking-wide">
                   Schedule 1 — {editEarlyFile}
                 </label>
                 <input type="date" value={editEarlyDate} onChange={e => setEditEarlyDate(e.target.value)}
-                  className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm
-                    focus:outline-none focus:border-blue-500 transition-colors" />
+                  className="bg-control border border-line rounded-lg px-3 py-2 text-fg text-sm
+                    focus:outline-none focus:border-accent transition-colors" />
               </div>
               <div className="flex items-center justify-center">
                 <button
@@ -603,19 +605,19 @@ export default function App() {
                     setEditEarlyDate(editLateDate); setEditEarlyFile(editLateFile)
                     setEditLateDate(td);  setEditLateFile(tf)
                   }}
-                  className="text-xs text-gray-500 hover:text-white bg-gray-800 hover:bg-gray-700
-                    border border-gray-700 hover:border-gray-500 px-3 py-1.5 rounded-lg transition-colors"
+                  className="text-xs text-fg-4 hover:text-fg bg-control hover:bg-muted
+                    border border-line hover:border-gray-500 px-3 py-1.5 rounded-lg transition-colors"
                 >
                   ⇄ Swap Schedules
                 </button>
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-xs text-gray-400 font-medium uppercase tracking-wide">
+                <label className="text-xs text-fg-3 font-medium uppercase tracking-wide">
                   Schedule 2 — {editLateFile}
                 </label>
                 <input type="date" value={editLateDate} onChange={e => setEditLateDate(e.target.value)}
-                  className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm
-                    focus:outline-none focus:border-blue-500 transition-colors" />
+                  className="bg-control border border-line rounded-lg px-3 py-2 text-fg text-sm
+                    focus:outline-none focus:border-accent transition-colors" />
               </div>
               {editEarlyDate && editLateDate && editEarlyDate >= editLateDate && (
                 <p className="text-red-400 text-xs">Schedule 1 date must be earlier than Schedule 2 date.</p>
@@ -625,13 +627,13 @@ export default function App() {
               <button
                 disabled={!editEarlyDate || !editLateDate || editEarlyDate >= editLateDate}
                 onClick={handleDateEdit}
-                className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2 rounded-lg text-sm
+                className="flex-1 bg-accent hover:bg-blue-500 text-fg font-semibold py-2 rounded-lg text-sm
                   transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Reanalyze
               </button>
               <button onClick={() => setEditingDates(false)}
-                className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold py-2 rounded-lg text-sm transition-colors">
+                className="flex-1 bg-control hover:bg-muted text-fg-2 font-semibold py-2 rounded-lg text-sm transition-colors">
                 Cancel
               </button>
             </div>
@@ -643,17 +645,17 @@ export default function App() {
         <div className="max-w-6xl mx-auto flex flex-col gap-8">
 
           {/* ── Tab Bar ── */}
-          <div className="sticky top-0 z-30 bg-gray-950 -mx-8 px-8 pt-2 flex gap-2 border-b border-gray-800">
+          <div className="sticky top-0 z-30 bg-bg -mx-8 px-8 pt-2 flex gap-2 border-b border-line-subtle">
             {TABS.filter(t => t.show).map(tab => (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
                 className={`px-4 py-1 text-sm font-medium transition-colors border-b-2 -mb-px
                   ${activeTab === tab.key
-                    ? 'border-blue-500 text-white'
+                    ? 'border-blue-500 text-fg'
                     : tab.key === 'Example'
-                      ? 'border-transparent text-gray-500 hover:text-green-400'
-                      : 'border-transparent text-gray-400 hover:text-white'}`}
+                      ? 'border-transparent text-fg-4 hover:text-green-400'
+                      : 'border-transparent text-fg-3 hover:text-fg'}`}
               >
                 {tab.label}
               </button>
@@ -666,11 +668,11 @@ export default function App() {
           {/* ── Example ── */}
           {activeTab === 'Example' && (
             <div className="flex flex-col gap-4 max-w-sm">
-              <p className="text-gray-400 text-sm">
+              <p className="text-fg-3 text-sm">
                 Load a pre-built example project to explore the tool without uploading real schedule files.
               </p>
               <button onClick={loadExample}
-                className="bg-green-700 hover:bg-green-600 text-white font-semibold py-3 rounded-xl transition-colors text-sm">
+                className="bg-green-700 hover:bg-green-600 text-fg font-semibold py-3 rounded-xl transition-colors text-sm">
                 ⚡ Load Example Project
               </button>
             </div>
@@ -681,12 +683,12 @@ export default function App() {
             <div className="flex flex-col gap-8">
 
               {/* Load existing project */}
-              <div className="max-w-3xl bg-gray-900 rounded-xl p-5 flex items-center justify-between gap-4">
+              <div className="max-w-3xl bg-card rounded-xl p-5 flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-white text-sm font-medium">Load Existing Project</p>
-                  <p className="text-gray-400 text-xs mt-0.5">Restore a previously saved .bwt project file</p>
+                  <p className="text-fg text-sm font-medium">Load Existing Project</p>
+                  <p className="text-fg-3 text-xs mt-0.5">Restore a previously saved .bwt project file</p>
                 </div>
-                <label className="cursor-pointer bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white
+                <label className="cursor-pointer bg-control hover:bg-muted text-fg-2 hover:text-fg
                   text-sm font-medium px-4 py-2 rounded-lg transition-colors">
                   Browse...
                   <input type="file" accept=".bwt" onChange={handleLoad} className="hidden" />
@@ -694,9 +696,9 @@ export default function App() {
               </div>
 
               <div className="max-w-3xl flex items-center gap-3">
-                <div className="flex-1 h-px bg-gray-800" />
+                <div className="flex-1 h-px bg-control" />
                 <span className="text-gray-600 text-xs">or start a new project below</span>
-                <div className="flex-1 h-px bg-gray-800" />
+                <div className="flex-1 h-px bg-control" />
               </div>
 
               <ProjectInfo
@@ -707,12 +709,12 @@ export default function App() {
               />
 
               {!hasProject ? (
-                <p className="text-gray-500 text-sm">Enter a project name and number above to begin.</p>
+                <p className="text-fg-4 text-sm">Enter a project name and number above to begin.</p>
               ) : (
                 <>
                   {/* ── Upload section ── */}
                   <div className="flex flex-col gap-3">
-                    <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">
+                    <p className="text-xs text-fg-4 uppercase tracking-wide font-medium">
                       {hasSchedules ? `Uploaded Schedules (${uploadedSchedules.length})` : 'Upload Schedules'}
                     </p>
                     <FileUpload onSchedulesReady={handleSchedulesReady} />
@@ -723,17 +725,17 @@ export default function App() {
                     <div className="flex flex-col gap-6 max-w-3xl">
 
                       {/* Divider */}
-                      <div className="h-px bg-gray-800" />
+                      <div className="h-px bg-control" />
 
                       {/* Loaded schedules summary */}
                       <div className="flex flex-col gap-2">
                         <div className="flex items-center justify-between">
-                          <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">Loaded Schedules</p>
+                          <p className="text-xs text-fg-4 uppercase tracking-wide font-medium">Loaded Schedules</p>
                           {rawFileList.length > 0 && (
                             <button
                               onClick={() => setRemapOpen(true)}
-                              className="text-xs text-gray-400 hover:text-white bg-gray-800 hover:bg-gray-700
-                                border border-gray-700 hover:border-gray-500 px-3 py-1.5 rounded-lg transition-colors"
+                              className="text-xs text-fg-3 hover:text-fg bg-control hover:bg-muted
+                                border border-line hover:border-gray-500 px-3 py-1.5 rounded-lg transition-colors"
                             >
                               Remap Columns
                             </button>
@@ -742,27 +744,27 @@ export default function App() {
                         <div className="flex flex-col gap-1.5">
                           {uploadedSchedules.map((s, i) => (
                             <div key={s.id}
-                              className="flex items-center gap-3 bg-gray-900 rounded-lg px-4 py-2.5">
+                              className="flex items-center gap-3 bg-card rounded-lg px-4 py-2.5">
                               {/* Reorder buttons */}
                               <div className="flex flex-col gap-0.5 shrink-0">
                                 <button
                                   onClick={() => moveSchedule(s.id, -1)}
                                   disabled={i === 0}
-                                  className="text-gray-600 hover:text-white disabled:opacity-20 disabled:cursor-default
+                                  className="text-gray-600 hover:text-fg disabled:opacity-20 disabled:cursor-default
                                     leading-none text-xs px-0.5 transition-colors"
                                   title="Move up"
                                 >▲</button>
                                 <button
                                   onClick={() => moveSchedule(s.id, 1)}
                                   disabled={i === uploadedSchedules.length - 1}
-                                  className="text-gray-600 hover:text-white disabled:opacity-20 disabled:cursor-default
+                                  className="text-gray-600 hover:text-fg disabled:opacity-20 disabled:cursor-default
                                     leading-none text-xs px-0.5 transition-colors"
                                   title="Move down"
                                 >▼</button>
                               </div>
                               <span className="text-xs text-gray-600 w-4">{i + 1}</span>
-                              <span className="text-white text-sm flex-1 truncate">{s.fileName}</span>
-                              <span className="text-gray-400 text-xs shrink-0">
+                              <span className="text-fg text-sm flex-1 truncate">{s.fileName}</span>
+                              <span className="text-fg-3 text-xs shrink-0">
                                 Data Date: {formatDate(s.dataDate)}
                               </span>
                               <span className="text-blue-400 text-xs shrink-0">
@@ -781,8 +783,8 @@ export default function App() {
 
                       {/* Analysis mode toggle */}
                       <div className="flex flex-col gap-3">
-                        <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">Analysis Type</p>
-                        <div className="flex gap-2 bg-gray-900 rounded-xl p-1 w-fit">
+                        <p className="text-xs text-fg-4 uppercase tracking-wide font-medium">Analysis Type</p>
+                        <div className="flex gap-2 bg-card rounded-xl p-1 w-fit">
                           {[
                             { key: 'two-schedule',   label: 'Two-Schedule Bow Wave' },
                             { key: 'multi-schedule', label: 'Multi-Schedule Trend'  },
@@ -792,8 +794,8 @@ export default function App() {
                               onClick={() => setAnalysisMode(opt.key)}
                               className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors
                                 ${analysisMode === opt.key
-                                  ? 'bg-blue-600 text-white'
-                                  : 'text-gray-400 hover:text-white'}`}
+                                  ? 'bg-accent text-fg'
+                                  : 'text-fg-3 hover:text-fg'}`}
                             >
                               {opt.label}
                             </button>
@@ -804,15 +806,15 @@ export default function App() {
                       {/* Two-schedule: pair picker */}
                       {analysisMode === 'two-schedule' && (
                         <div className="flex flex-col gap-3">
-                          <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">Select Schedule Pair</p>
+                          <p className="text-xs text-fg-4 uppercase tracking-wide font-medium">Select Schedule Pair</p>
                           <div className="flex items-center gap-4 flex-wrap">
                             <div className="flex flex-col gap-1">
-                              <label className="text-xs text-gray-400">Earlier Schedule</label>
+                              <label className="text-xs text-fg-3">Earlier Schedule</label>
                               <select
                                 value={selectedPair[0] || ''}
                                 onChange={e => setSelectedPair(prev => [e.target.value || null, prev[1]])}
-                                className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm
-                                  focus:outline-none focus:border-blue-500 transition-colors min-w-52"
+                                className="bg-card border border-line rounded-lg px-3 py-2 text-fg text-sm
+                                  focus:outline-none focus:border-accent transition-colors min-w-52"
                               >
                                 <option value="">— Select schedule —</option>
                                 {uploadedSchedules.map(s => (
@@ -822,12 +824,12 @@ export default function App() {
                             </div>
                             <span className="text-gray-600 text-xl mt-4">→</span>
                             <div className="flex flex-col gap-1">
-                              <label className="text-xs text-gray-400">Later Schedule</label>
+                              <label className="text-xs text-fg-3">Later Schedule</label>
                               <select
                                 value={selectedPair[1] || ''}
                                 onChange={e => setSelectedPair(prev => [prev[0], e.target.value || null])}
-                                className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm
-                                  focus:outline-none focus:border-blue-500 transition-colors min-w-52"
+                                className="bg-card border border-line rounded-lg px-3 py-2 text-fg text-sm
+                                  focus:outline-none focus:border-accent transition-colors min-w-52"
                               >
                                 <option value="">— Select schedule —</option>
                                 {uploadedSchedules.map(s => (
@@ -842,7 +844,7 @@ export default function App() {
                           <button
                             onClick={runTwoScheduleAnalysis}
                             disabled={!selectedPair[0] || !selectedPair[1] || selectedPair[0] === selectedPair[1]}
-                            className="w-fit bg-blue-600 hover:bg-blue-500 text-white font-semibold
+                            className="w-fit bg-accent hover:bg-blue-500 text-fg font-semibold
                               px-6 py-2.5 rounded-xl text-sm transition-colors
                               disabled:opacity-40 disabled:cursor-not-allowed"
                           >
@@ -854,15 +856,15 @@ export default function App() {
                       {/* Multi-schedule: baseline picker + run */}
                       {analysisMode === 'multi-schedule' && (
                         <div className="flex flex-col gap-3">
-                          <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">Baseline Schedule (Optional)</p>
-                          <p className="text-gray-400 text-xs">
+                          <p className="text-xs text-fg-4 uppercase tracking-wide font-medium">Baseline Schedule (Optional)</p>
+                          <p className="text-fg-3 text-xs">
                             Select a schedule to use as the baseline reference. It will be highlighted on the trend chart.
                           </p>
                           <select
                             value={baselineId || ''}
                             onChange={e => setBaselineId(e.target.value || null)}
-                            className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm
-                              focus:outline-none focus:border-blue-500 transition-colors w-fit min-w-64"
+                            className="bg-card border border-line rounded-lg px-3 py-2 text-fg text-sm
+                              focus:outline-none focus:border-accent transition-colors w-fit min-w-64"
                           >
                             <option value="">No baseline</option>
                             {uploadedSchedules.map(s => (
@@ -871,7 +873,7 @@ export default function App() {
                           </select>
                           <button
                             onClick={runMultiScheduleAnalysis}
-                            className="w-fit bg-blue-600 hover:bg-blue-500 text-white font-semibold
+                            className="w-fit bg-accent hover:bg-blue-500 text-fg font-semibold
                               px-6 py-2.5 rounded-xl text-sm transition-colors"
                           >
                             View Multi-Schedule Trend
@@ -891,22 +893,22 @@ export default function App() {
 
               {/* Schedule summary bar */}
               {twoSchedInfo && (
-                <div className="bg-gray-900 rounded-xl px-6 py-4 flex flex-wrap gap-6 items-center">
+                <div className="bg-card rounded-xl px-6 py-4 flex flex-wrap gap-6 items-center">
                   <div className="flex flex-col gap-0.5">
-                    <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">Schedule 1 (Earlier)</p>
-                    <p className="text-white text-sm font-medium">{twoSchedInfo.earlyFile}</p>
-                    <p className="text-gray-400 text-xs">Data Date: {formatDate(twoSchedInfo.earlyDate)}</p>
+                    <p className="text-xs text-fg-4 uppercase tracking-wide font-medium">Schedule 1 (Earlier)</p>
+                    <p className="text-fg text-sm font-medium">{twoSchedInfo.earlyFile}</p>
+                    <p className="text-fg-3 text-xs">Data Date: {formatDate(twoSchedInfo.earlyDate)}</p>
                   </div>
                   <div className="text-gray-600 text-xl">→</div>
                   <div className="flex flex-col gap-0.5">
-                    <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">Schedule 2 (Later)</p>
-                    <p className="text-white text-sm font-medium">{twoSchedInfo.lateFile}</p>
-                    <p className="text-gray-400 text-xs">Data Date: {formatDate(twoSchedInfo.lateDate)}</p>
+                    <p className="text-xs text-fg-4 uppercase tracking-wide font-medium">Schedule 2 (Later)</p>
+                    <p className="text-fg text-sm font-medium">{twoSchedInfo.lateFile}</p>
+                    <p className="text-fg-3 text-xs">Data Date: {formatDate(twoSchedInfo.lateDate)}</p>
                   </div>
                   <button
                     onClick={openDateModal}
-                    className="ml-auto text-xs text-gray-500 hover:text-white bg-gray-800 hover:bg-gray-700
-                      border border-gray-700 hover:border-gray-500 px-3 py-1.5 rounded-lg transition-colors"
+                    className="ml-auto text-xs text-fg-4 hover:text-fg bg-control hover:bg-muted
+                      border border-line hover:border-gray-500 px-3 py-1.5 rounded-lg transition-colors"
                   >
                     Edit Data Dates
                   </button>
@@ -925,30 +927,30 @@ export default function App() {
 
               {/* Scenario tabs */}
               <div className="flex flex-col gap-2">
-                <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">Redistribution Scenario</p>
+                <p className="text-xs text-fg-4 uppercase tracking-wide font-medium">Redistribution Scenario</p>
                 <ScenarioTabs bowWaveResult={bowWaveResult} onScenarioChange={setScenarioConfig} scenarioConfig={scenarioConfig} />
               </div>
 
               {/* Chart + KPI */}
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between flex-wrap gap-3">
-                  <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">Workload Chart</p>
+                  <p className="text-xs text-fg-4 uppercase tracking-wide font-medium">Workload Chart</p>
                   <div className="flex items-center gap-3">
-                    <p className="text-xs text-gray-400">Base schedule:</p>
-                    <div className="flex items-center gap-1 bg-gray-900 rounded-lg p-1">
+                    <p className="text-xs text-fg-3">Base schedule:</p>
+                    <div className="flex items-center gap-1 bg-card rounded-lg p-1">
                       {[{ key: 'A', label: 'Schedule 1' }, { key: 'B', label: 'Schedule 2' }].map(opt => (
                         <button key={opt.key} onClick={() => setBaseSchedule(opt.key)}
                           className={`px-3 py-1 rounded-md text-xs font-medium transition-colors
-                            ${baseSchedule === opt.key ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>
+                            ${baseSchedule === opt.key ? 'bg-accent text-fg' : 'text-fg-3 hover:text-fg'}`}>
                           {opt.label}
                         </button>
                       ))}
                     </div>
-                    <div className="flex items-center gap-1 bg-gray-900 rounded-lg p-1">
+                    <div className="flex items-center gap-1 bg-card rounded-lg p-1">
                       {['hrs', 'days'].map(u => (
                         <button key={u} onClick={() => setUnit(u)}
                           className={`px-3 py-1 rounded-md text-xs font-medium transition-colors
-                            ${unit === u ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>
+                            ${unit === u ? 'bg-accent text-fg' : 'text-fg-3 hover:text-fg'}`}>
                           {u}
                         </button>
                       ))}
@@ -976,7 +978,7 @@ export default function App() {
                     />
                   </div>
                   <div className="w-64 shrink-0 flex flex-col gap-3">
-                    <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">Summary</p>
+                    <p className="text-xs text-fg-4 uppercase tracking-wide font-medium">Summary</p>
                     <KpiCards result={bowWaveResult} unit={unit} onUnitChange={setUnit} />
                   </div>
                 </div>
@@ -1000,14 +1002,14 @@ export default function App() {
 
               {/* Units toggle */}
               <div className="flex items-center justify-between flex-wrap gap-3">
-                <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">
+                <p className="text-xs text-fg-4 uppercase tracking-wide font-medium">
                   Multi-Schedule Trend — {uploadedSchedules.length} schedules
                 </p>
-                <div className="flex items-center gap-1 bg-gray-900 rounded-lg p-1">
+                <div className="flex items-center gap-1 bg-card rounded-lg p-1">
                   {['hrs', 'days'].map(u => (
                     <button key={u} onClick={() => setUnit(u)}
                       className={`px-3 py-1 rounded-md text-xs font-medium transition-colors
-                        ${unit === u ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>
+                        ${unit === u ? 'bg-accent text-fg' : 'text-fg-3 hover:text-fg'}`}>
                       {u}
                     </button>
                   ))}
@@ -1039,6 +1041,11 @@ export default function App() {
                 projectNumber={projectNumber}
               />
             </div>
+          )}
+
+          {/* ── Configure Tab ── */}
+          {activeTab === 'Configure' && (
+            <ConfigureTab />
           )}
 
           {/* ── Schedule Data Tab ── */}

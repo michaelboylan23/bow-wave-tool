@@ -7,10 +7,10 @@ const unitLabel = (unit) => unit === 'hrs' ? 'hrs' : 'days'
 
 function Card({ title, value, sub, color }) {
   return (
-    <div className="bg-gray-900 rounded-xl p-5 flex flex-col gap-1">
-      <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">{title}</p>
-      <p className={`text-2xl font-bold ${color || 'text-white'}`}>{value}</p>
-      {sub && <p className="text-sm text-gray-400">{sub}</p>}
+    <div className="bg-card rounded-xl p-5 flex flex-col gap-1">
+      <p className="text-xs text-fg-3 font-medium uppercase tracking-wide">{title}</p>
+      <p className={`text-2xl font-bold ${color || 'text-fg'}`}>{value}</p>
+      {sub && <p className="text-sm text-fg-3">{sub}</p>}
     </div>
   )
 }

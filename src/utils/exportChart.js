@@ -7,17 +7,24 @@
  * @param {string}      filename  - Suggested document title (shown in print dialog / PDF filename)
  */
 export function exportChart(element, metaLines = [], filename = 'chart') {
+  // Read current theme colors from CSS variables
+  const s = getComputedStyle(document.documentElement)
+  const bg   = s.getPropertyValue('--bg').trim()   || '#111827'
+  const card = s.getPropertyValue('--card').trim() || '#111827'
+  const line = s.getPropertyValue('--line').trim() || '#374151'
+  const fg3  = s.getPropertyValue('--fg-3').trim() || '#9ca3af'
+
   // Prepend a metadata header with logo + info
   const meta = document.createElement('div')
   meta.style.cssText = [
     'padding: 8px 0 10px',
     'font-family: ui-sans-serif, system-ui, sans-serif',
     'font-size: 11px',
-    'color: #9ca3af',
+    `color: ${fg3}`,
     'display: flex',
     'align-items: center',
     'gap: 16px',
-    'border-bottom: 1px solid #374151',
+    `border-bottom: 1px solid ${line}`,
     'margin-bottom: 8px',
   ].join(';')
 
@@ -53,7 +60,7 @@ export function exportChart(element, metaLines = [], filename = 'chart') {
       body {
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
-        background: #111827 !important;
+        background: ${bg} !important;
         margin: 0 !important;
         padding: 0 !important;
       }
@@ -66,7 +73,7 @@ export function exportChart(element, metaLines = [], filename = 'chart') {
         left: 2.2cm !important;
         right: 2.2cm !important;
         padding: 0 1cm !important;
-        background: #111827 !important;
+        background: ${card} !important;
         overflow: visible !important;
         box-sizing: border-box !important;
       }

@@ -180,11 +180,11 @@ export default function ScheduleData({ schedules }) {
               onClick={() => setActiveId(s.id)}
               className={`flex flex-col items-start px-5 py-3 rounded-xl text-sm transition-colors border
                 ${activeId === s.id
-                  ? 'bg-blue-600/20 border-blue-500 text-white'
-                  : 'bg-gray-900 border-gray-700 text-gray-400 hover:text-white hover:border-gray-500'}`}
+                  ? 'bg-accent/20 border-blue-500 text-fg'
+                  : 'bg-card border-line text-fg-3 hover:text-fg hover:border-gray-500'}`}
             >
               <span className="font-medium">{s.fileName}</span>
-              {ddLabel && <span className="text-xs text-gray-400 mt-0.5">Data Date: {ddLabel}</span>}
+              {ddLabel && <span className="text-xs text-fg-3 mt-0.5">Data Date: {ddLabel}</span>}
             </button>
           )
         })}
@@ -193,45 +193,45 @@ export default function ScheduleData({ schedules }) {
       {/* Filters */}
       <div className="flex flex-wrap gap-3 items-end shrink-0">
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-gray-500 font-medium uppercase tracking-wide">Search</label>
+          <label className="text-xs text-fg-4 font-medium uppercase tracking-wide">Search</label>
           <input
             type="text"
             placeholder="Activity ID or Name…"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm w-56
-              focus:outline-none focus:border-blue-500 transition-colors placeholder-gray-600"
+            className="bg-card border border-line rounded-lg px-3 py-2 text-fg text-sm w-56
+              focus:outline-none focus:border-accent transition-colors placeholder-gray-600"
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-gray-500 font-medium uppercase tracking-wide">Status</label>
+          <label className="text-xs text-fg-4 font-medium uppercase tracking-wide">Status</label>
           <select
             value={statusFilter}
             onChange={e => setStatusFilter(e.target.value)}
-            className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm
-              focus:outline-none focus:border-blue-500 transition-colors"
+            className="bg-card border border-line rounded-lg px-3 py-2 text-fg text-sm
+              focus:outline-none focus:border-accent transition-colors"
           >
             <option value="">All Statuses</option>
             {statuses.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-gray-500 font-medium uppercase tracking-wide">Start From</label>
+          <label className="text-xs text-fg-4 font-medium uppercase tracking-wide">Start From</label>
           <input type="date" value={startFrom} onChange={e => setStartFrom(e.target.value)}
-            className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm
-              focus:outline-none focus:border-blue-500 transition-colors" />
+            className="bg-card border border-line rounded-lg px-3 py-2 text-fg text-sm
+              focus:outline-none focus:border-accent transition-colors" />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-gray-500 font-medium uppercase tracking-wide">Start To</label>
+          <label className="text-xs text-fg-4 font-medium uppercase tracking-wide">Start To</label>
           <input type="date" value={startTo} onChange={e => setStartTo(e.target.value)}
-            className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm
-              focus:outline-none focus:border-blue-500 transition-colors" />
+            className="bg-card border border-line rounded-lg px-3 py-2 text-fg text-sm
+              focus:outline-none focus:border-accent transition-colors" />
         </div>
         <div className="ml-auto flex items-end">
           <button
             onClick={() => setShowColModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700
-              hover:border-gray-500 text-gray-300 hover:text-white rounded-lg text-sm font-medium transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-control hover:bg-muted border border-line
+              hover:border-gray-500 text-fg-2 hover:text-fg rounded-lg text-sm font-medium transition-colors"
           >
             <span>⊞</span> Columns
           </button>
@@ -239,7 +239,7 @@ export default function ScheduleData({ schedules }) {
         {(search || statusFilter || startFrom || startTo) && (
           <button
             onClick={() => { setSearch(''); setStatusFilter(''); setStartFrom(''); setStartTo('') }}
-            className="text-xs text-gray-500 hover:text-white transition-colors pb-2"
+            className="text-xs text-fg-4 hover:text-fg transition-colors pb-2"
           >
             Clear filters
           </button>
@@ -247,18 +247,18 @@ export default function ScheduleData({ schedules }) {
       </div>
 
       {/* Row count */}
-      <p className="text-xs text-gray-500 shrink-0">
-        Showing <span className="text-white font-medium">{sorted.length.toLocaleString()}</span> of{' '}
-        <span className="text-white font-medium">{activities.length.toLocaleString()}</span> activities
+      <p className="text-xs text-fg-4 shrink-0">
+        Showing <span className="text-fg font-medium">{sorted.length.toLocaleString()}</span> of{' '}
+        <span className="text-fg font-medium">{activities.length.toLocaleString()}</span> activities
         {' '}·{' '}
-        <span className="text-white font-medium">{visibleCols.length}</span> of{' '}
-        <span className="text-white font-medium">{(colConfig ?? allCols).length}</span> columns shown
+        <span className="text-fg font-medium">{visibleCols.length}</span> of{' '}
+        <span className="text-fg font-medium">{(colConfig ?? allCols).length}</span> columns shown
       </p>
 
       {/* Table */}
       <div
         ref={tableScrollRef}
-        className="flex-1 min-h-0 overflow-auto rounded-xl border border-gray-800"
+        className="flex-1 min-h-0 overflow-auto rounded-xl border border-line-subtle"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
         <style>{`
@@ -266,13 +266,13 @@ export default function ScheduleData({ schedules }) {
         `}</style>
         <table className="w-full text-sm border-collapse">
           <thead className="sticky top-0 z-10">
-            <tr className="bg-gray-900 border-b border-gray-800">
+            <tr className="bg-card border-b border-line-subtle">
               {visibleCols.map(col => (
                 <th
                   key={col.key}
                   onClick={() => handleSort(col.key)}
-                  className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide
-                    whitespace-nowrap cursor-pointer select-none hover:text-white transition-colors"
+                  className="text-left px-4 py-3 text-xs font-medium text-fg-3 uppercase tracking-wide
+                    whitespace-nowrap cursor-pointer select-none hover:text-fg transition-colors"
                 >
                   {col.label}<SortIcon col={col.key} />
                 </th>
@@ -294,11 +294,11 @@ export default function ScheduleData({ schedules }) {
               return (
                 <tr
                   key={vRow.index}
-                  className={`border-b border-gray-800/50 transition-colors hover:bg-gray-900/60
-                    ${vRow.index % 2 === 0 ? '' : 'bg-gray-900/20'}`}
+                  className={`border-b border-line-subtle/50 transition-colors hover:bg-card/60
+                    ${vRow.index % 2 === 0 ? '' : 'bg-card/20'}`}
                 >
                   {visibleCols.map(col => (
-                    <td key={col.key} className="px-4 py-2.5 text-gray-300 whitespace-nowrap">
+                    <td key={col.key} className="px-4 py-2.5 text-fg-2 whitespace-nowrap">
                       {formatVal(col.key, row[col.key])}
                     </td>
                   ))}
@@ -315,7 +315,7 @@ export default function ScheduleData({ schedules }) {
       {/* Phantom scrollbar */}
       <div
         ref={bottomScrollRef}
-        className="shrink-0 overflow-x-auto bg-gray-950 border-t border-gray-800"
+        className="shrink-0 overflow-x-auto bg-bg border-t border-line-subtle"
         style={{ height: '16px' }}
       >
         <div ref={phantomRef} style={{ height: '1px' }} />
@@ -324,10 +324,10 @@ export default function ScheduleData({ schedules }) {
       {/* Column selector modal */}
       {showColModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-md flex flex-col max-h-[80vh]">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
-              <h2 className="text-white font-semibold text-base">Select & Rearrange Columns</h2>
-              <button onClick={resetCols} className="text-xs text-gray-500 hover:text-white transition-colors">
+          <div className="bg-card border border-line rounded-2xl w-full max-w-md flex flex-col max-h-[80vh]">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-line-subtle">
+              <h2 className="text-fg font-semibold text-base">Select & Rearrange Columns</h2>
+              <button onClick={resetCols} className="text-xs text-fg-4 hover:text-fg transition-colors">
                 Reset to default
               </button>
             </div>
@@ -339,29 +339,29 @@ export default function ScheduleData({ schedules }) {
                   onDragStart={() => onDragStart(i)}
                   onDragOver={e => e.preventDefault()}
                   onDrop={() => onDrop(i)}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-gray-800/50 hover:bg-gray-800
-                    cursor-default select-none border border-transparent hover:border-gray-700 transition-colors"
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-control/50 hover:bg-control
+                    cursor-default select-none border border-transparent hover:border-line transition-colors"
                 >
-                  <span className="text-gray-600 hover:text-gray-400 cursor-grab active:cursor-grabbing text-lg leading-none">⠿</span>
+                  <span className="text-gray-600 hover:text-fg-3 cursor-grab active:cursor-grabbing text-lg leading-none">⠿</span>
                   <input
                     type="checkbox"
                     checked={col.visible}
                     onChange={() => toggleCol(col.key)}
                     className="accent-blue-500 w-4 h-4 cursor-pointer"
                   />
-                  <span className={`text-sm flex-1 ${col.visible ? 'text-white' : 'text-gray-500'}`}>
+                  <span className={`text-sm flex-1 ${col.visible ? 'text-fg' : 'text-fg-4'}`}>
                     {col.label}
                   </span>
                   {!FIXED_KEYS.has(col.key) && (
-                    <span className="text-xs text-gray-600 bg-gray-900 px-2 py-0.5 rounded-full">raw</span>
+                    <span className="text-xs text-gray-600 bg-card px-2 py-0.5 rounded-full">raw</span>
                   )}
                 </div>
               ))}
             </div>
-            <div className="px-6 py-4 border-t border-gray-800">
+            <div className="px-6 py-4 border-t border-line-subtle">
               <button
                 onClick={() => setShowColModal(false)}
-                className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors"
+                className="w-full bg-accent hover:bg-blue-500 text-fg font-semibold py-2.5 rounded-xl text-sm transition-colors"
               >
                 Done
               </button>

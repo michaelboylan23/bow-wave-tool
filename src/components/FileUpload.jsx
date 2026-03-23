@@ -74,8 +74,8 @@ const enrichXerHeaders = (headers, ext) => {
 function Spinner() {
   return (
     <div className="flex flex-col items-center justify-center gap-3 py-12">
-      <div className="w-10 h-10 border-4 border-gray-700 border-t-blue-500 rounded-full animate-spin" />
-      <p className="text-gray-400 text-sm">Parsing schedules…</p>
+      <div className="w-10 h-10 border-4 border-line border-t-blue-500 rounded-full animate-spin" />
+      <p className="text-fg-3 text-sm">Parsing schedules…</p>
     </div>
   )
 }
@@ -106,10 +106,10 @@ function AddDropZone({ onFiles }) {
       onDragLeave={() => setDragging(false)}
       onDrop={handleDrop}
       className={`cursor-pointer rounded-xl border-2 border-dashed p-8 text-center transition-colors
-        ${dragging ? 'border-blue-400 bg-blue-950' : 'border-gray-700 hover:border-gray-500 bg-gray-900/50'}`}
+        ${dragging ? 'border-blue-400 bg-blue-950' : 'border-line hover:border-gray-500 bg-card/50'}`}
     >
       <input ref={inputRef} type="file" accept={ACCEPTED} multiple onChange={handleChange} className="hidden" />
-      <p className="text-gray-400 text-sm mb-1">Drag & drop files here, or click to browse</p>
+      <p className="text-fg-3 text-sm mb-1">Drag & drop files here, or click to browse</p>
       <p className="text-gray-600 text-xs">CSV, Excel, or XER · Multiple files supported</p>
     </div>
   )
@@ -120,30 +120,30 @@ function AddDropZone({ onFiles }) {
 function MappingColumn({ fileName, allHeaders, mapping, onChange }) {
   return (
     <div className="flex-1 min-w-0 flex flex-col gap-3">
-      <div className="bg-gray-900 rounded-xl overflow-hidden">
+      <div className="bg-card rounded-xl overflow-hidden">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-gray-800">
-              <th className="px-4 py-3 text-left text-gray-300 font-semibold text-xs">Required Field</th>
-              <th className="px-4 py-3 text-left text-gray-300 font-semibold text-xs">Your Column</th>
-              <th className="px-4 py-3 text-left text-gray-300 font-semibold text-xs">Status</th>
+            <tr className="bg-control">
+              <th className="px-4 py-3 text-left text-fg-2 font-semibold text-xs">Required Field</th>
+              <th className="px-4 py-3 text-left text-fg-2 font-semibold text-xs">Your Column</th>
+              <th className="px-4 py-3 text-left text-fg-2 font-semibold text-xs">Status</th>
             </tr>
           </thead>
           <tbody>
             {REQUIRED_FIELDS.map((field, i) => {
               const value = mapping[field.key]
               return (
-                <tr key={field.key} className={i % 2 === 0 ? 'bg-gray-900' : 'bg-gray-800/50'}>
+                <tr key={field.key} className={i % 2 === 0 ? 'bg-card' : 'bg-control/50'}>
                   <td className="px-4 py-3">
-                    <p className="text-white font-medium text-xs">{field.label}</p>
-                    <p className="text-gray-500 font-mono text-xs">{field.key}</p>
+                    <p className="text-fg font-medium text-xs">{field.label}</p>
+                    <p className="text-fg-4 font-mono text-xs">{field.key}</p>
                   </td>
                   <td className="px-4 py-3">
                     <select
                       value={value || ''}
                       onChange={e => onChange(field.key, e.target.value || null)}
-                      className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5
-                        text-white text-xs focus:outline-none focus:border-blue-500 transition-colors"
+                      className="w-full bg-control border border-line rounded-lg px-2 py-1.5
+                        text-fg text-xs focus:outline-none focus:border-accent transition-colors"
                     >
                       <option value="">— select —</option>
                       {[...allHeaders].sort((a, b) => a.localeCompare(b)).map(h => (
@@ -165,7 +165,7 @@ function MappingColumn({ fileName, allHeaders, mapping, onChange }) {
         </table>
       </div>
       {/* Show which files have each mapped column */}
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-fg-4">
         This mapping applies to all {fileName ? `files (reference: ${fileName})` : 'uploaded files'}.
       </p>
     </div>
@@ -284,7 +284,7 @@ export default function FileUpload({ onSchedulesReady }) {
       <div className="flex flex-col gap-6 max-w-2xl">
         <div>
           <h2 className="text-xl font-bold mb-1">Map Columns</h2>
-          <p className="text-gray-400 text-sm">
+          <p className="text-fg-3 text-sm">
             Match each required field to the corresponding column in your files.
             This single mapping is applied to all {fileList.length} uploaded schedules.
             Auto-matched fields are pre-filled — review before confirming.
@@ -315,14 +315,14 @@ export default function FileUpload({ onSchedulesReady }) {
             onClick={handleConfirmMapping}
             disabled={!complete}
             className={`flex-1 py-3 rounded-xl font-semibold text-sm transition-colors
-              ${complete ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-gray-800 text-gray-500 cursor-not-allowed'}`}
+              ${complete ? 'bg-accent hover:bg-blue-500 text-fg' : 'bg-control text-fg-4 cursor-not-allowed'}`}
           >
             {complete ? 'Confirm Mapping & Continue' : 'Please map all required fields to continue'}
           </button>
           <button
             onClick={() => setStage('upload')}
-            className="px-6 py-3 rounded-xl font-semibold text-sm bg-gray-800 hover:bg-gray-700
-              text-gray-300 hover:text-white transition-colors"
+            className="px-6 py-3 rounded-xl font-semibold text-sm bg-control hover:bg-muted
+              text-fg-2 hover:text-fg transition-colors"
           >
             Back
           </button>
@@ -342,21 +342,21 @@ export default function FileUpload({ onSchedulesReady }) {
             return (
               <div
                 key={f.id}
-                className="bg-gray-900 border border-gray-800 rounded-xl px-5 py-3 flex items-center gap-4"
+                className="bg-card border border-line-subtle rounded-xl px-5 py-3 flex items-center gap-4"
               >
-                <span className="text-xs font-bold text-gray-400 w-6 shrink-0">{i + 1}</span>
-                <span className="inline-block bg-blue-600 text-white text-xs font-bold px-2 py-0.5 rounded shrink-0">
+                <span className="text-xs font-bold text-fg-3 w-6 shrink-0">{i + 1}</span>
+                <span className="inline-block bg-accent text-fg text-xs font-bold px-2 py-0.5 rounded shrink-0">
                   {ext}
                 </span>
-                <span className="text-white text-sm flex-1 truncate">{f.file.name}</span>
+                <span className="text-fg text-sm flex-1 truncate">{f.file.name}</span>
                 <div className="flex items-center gap-2 shrink-0">
-                  <label className="text-xs text-gray-500">Data Date</label>
+                  <label className="text-xs text-fg-4">Data Date</label>
                   <input
                     type="date"
                     value={f.dataDate}
                     onChange={e => handleDateChange(f.id, e.target.value)}
-                    className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-white text-xs
-                      focus:outline-none focus:border-blue-500 transition-colors"
+                    className="bg-control border border-line rounded-lg px-2 py-1 text-fg text-xs
+                      focus:outline-none focus:border-accent transition-colors"
                   />
                 </div>
                 <button
@@ -376,7 +376,7 @@ export default function FileUpload({ onSchedulesReady }) {
       <AddDropZone onFiles={handleAddFiles} />
 
       {fileList.length < 2 && (
-        <p className="text-gray-500 text-xs">
+        <p className="text-fg-4 text-xs">
           Add at least 2 schedule files to continue.
           {fileList.length === 1 ? ' Add 1 more.' : ''}
         </p>
@@ -397,7 +397,7 @@ export default function FileUpload({ onSchedulesReady }) {
       {readyToMap && (
         <button
           onClick={handleProceedToMapping}
-          className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-xl transition-colors"
+          className="w-full bg-accent hover:bg-blue-500 text-fg font-semibold py-3 rounded-xl transition-colors"
         >
           Continue to Column Mapping →
         </button>

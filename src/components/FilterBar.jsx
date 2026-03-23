@@ -82,29 +82,29 @@ function MultiSelectDropdown({ column, allValues, selected, onChange }) {
         onClick={openDropdown}
         className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border transition-colors whitespace-nowrap
           ${!allSelected
-            ? 'bg-blue-600/20 border-blue-500 text-white'
-            : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500 hover:text-white'}`}
+            ? 'bg-accent/20 border-blue-500 text-fg'
+            : 'bg-control border-line text-fg-2 hover:border-gray-500 hover:text-fg'}`}
       >
         {label}
-        <span className="text-gray-400 text-xs">{open ? '▲' : '▼'}</span>
+        <span className="text-fg-3 text-xs">{open ? '▲' : '▼'}</span>
       </button>
 
       {open && (
         <div
           ref={dropdownRef}
           style={dropdownStyle}
-          className="bg-gray-900 border border-gray-700 rounded-xl shadow-2xl max-h-72 overflow-y-auto"
+          className="bg-card border border-line rounded-xl shadow-2xl max-h-72 overflow-y-auto"
         >
-          <div className="sticky top-0 bg-gray-900 border-b border-gray-800 px-3 py-2 flex gap-3">
+          <div className="sticky top-0 bg-card border-b border-line-subtle px-3 py-2 flex gap-3">
             <button
               onClick={() => onChange(new Set(allValues))}
-              className="text-xs text-gray-500 hover:text-white transition-colors"
+              className="text-xs text-fg-4 hover:text-fg transition-colors"
             >
               All
             </button>
             <button
               onClick={() => onChange(new Set())}
-              className="text-xs text-gray-500 hover:text-white transition-colors"
+              className="text-xs text-fg-4 hover:text-fg transition-colors"
             >
               None
             </button>
@@ -113,7 +113,7 @@ function MultiSelectDropdown({ column, allValues, selected, onChange }) {
             {allValues.map(val => (
               <label
                 key={val}
-                className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-gray-800 cursor-pointer"
+                className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-control cursor-pointer"
               >
                 <input
                   type="checkbox"
@@ -121,7 +121,7 @@ function MultiSelectDropdown({ column, allValues, selected, onChange }) {
                   onChange={() => toggle(val)}
                   className="accent-blue-500 w-3.5 h-3.5 shrink-0"
                 />
-                <span className={`text-xs truncate ${selected.has(val) ? 'text-white' : 'text-gray-400'}`}>
+                <span className={`text-xs truncate ${selected.has(val) ? 'text-fg' : 'text-fg-3'}`}>
                   {val}
                 </span>
               </label>
@@ -187,11 +187,11 @@ export default function FilterBar({ scheduleList, filterConfig, onApply, availab
   if (!hasContent) return null
 
   return (
-    <div className="bg-gray-900 rounded-xl px-4 py-3 flex items-center gap-3">
-      <p className="text-xs text-gray-500 uppercase tracking-wide font-medium shrink-0">Filters</p>
+    <div className="bg-card rounded-xl px-4 py-3 flex items-center gap-3">
+      <p className="text-xs text-fg-4 uppercase tracking-wide font-medium shrink-0">Filters</p>
 
       {/* Scrollable filter chips + add button */}
-      <div className="flex-1 overflow-x-auto flex items-center gap-2 min-w-0 pb-1 [&::-webkit-scrollbar]:h-3 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-700 [&::-webkit-scrollbar-thumb]:rounded-full">
+      <div className="flex-1 overflow-x-auto flex items-center gap-2 min-w-0 pb-1 [&::-webkit-scrollbar]:h-3 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-muted [&::-webkit-scrollbar-thumb]:rounded-full">
         {pending.map(p => {
           const allVals = getUniqueSharedValues(scheduleList, p.column)
           return (
@@ -218,8 +218,8 @@ export default function FilterBar({ scheduleList, filterConfig, onApply, availab
           <select
             value=""
             onChange={e => e.target.value && onAddColumn(e.target.value)}
-            className="shrink-0 bg-gray-800 border border-dashed border-gray-600 hover:border-gray-400
-              rounded-lg px-2 py-1.5 text-gray-500 hover:text-white text-xs transition-colors cursor-pointer"
+            className="shrink-0 bg-control border border-dashed border-gray-600 hover:border-gray-400
+              rounded-lg px-2 py-1.5 text-fg-4 hover:text-fg text-xs transition-colors cursor-pointer"
           >
             <option value="">+ Add filter</option>
             {addableColumns.map(c => (
@@ -234,7 +234,7 @@ export default function FilterBar({ scheduleList, filterConfig, onApply, availab
         {anyFiltered && !isDirty && (
           <button
             onClick={handleClearAll}
-            className="text-xs text-gray-500 hover:text-white transition-colors"
+            className="text-xs text-fg-4 hover:text-fg transition-colors"
           >
             Clear
           </button>
@@ -242,7 +242,7 @@ export default function FilterBar({ scheduleList, filterConfig, onApply, availab
         {isDirty && (
           <button
             onClick={handleApply}
-            className="text-xs bg-blue-600 hover:bg-blue-500 text-white font-semibold
+            className="text-xs bg-accent hover:bg-blue-500 text-fg font-semibold
               px-3 py-1.5 rounded-lg transition-colors"
           >
             Apply Filters

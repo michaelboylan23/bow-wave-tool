@@ -1,1 +1,70 @@
 @import "tailwindcss";
+
+/* ─── Semantic color tokens (Tailwind v4 @theme inline) ─────────────────────
+   The `inline` keyword makes each utility reference the CSS variable directly,
+   so runtime changes to the variable (e.g. data-theme switch) are reflected
+   instantly without a rebuild.                                               */
+@theme inline {
+  --color-bg:           var(--bg);
+  --color-card:         var(--card);
+  --color-control:      var(--control);
+  --color-muted:        var(--muted-bg);
+  --color-line:         var(--line);
+  --color-line-subtle:  var(--line-subtle);
+  --color-fg:           var(--fg);
+  --color-fg-2:         var(--fg-2);
+  --color-fg-3:         var(--fg-3);
+  --color-fg-4:         var(--fg-4);
+  --color-accent:       var(--accent);
+  --color-accent-hi:    var(--accent-hi);
+  --color-accent-b:     var(--accent-b);
+  --color-accent-b-hi:  var(--accent-b-hi);
+
+  /* Font */
+  --font-size-base: var(--fs-base);
+  --font-family-sans: var(--font-family);
+}
+
+/* ─── Dark theme (default) ──────────────────────────────────────────────── */
+:root {
+  --bg:           #030712;
+  --card:         #111827;
+  --control:      #1f2937;
+  --muted-bg:     #374151;
+  --line:         #374151;
+  --line-subtle:  #1f2937;
+  --fg:           #ffffff;
+  --fg-2:         #d1d5db;
+  --fg-3:         #9ca3af;
+  --fg-4:         #6b7280;
+  --accent:       #2563eb;
+  --accent-hi:    #1d4ed8;
+  --accent-b:     #ea580c;
+  --accent-b-hi:  #c2410c;
+
+  --fs-base:      15px;
+  --font-family:  ui-sans-serif, system-ui, sans-serif;
+}
+
+/* ─── Light theme ───────────────────────────────────────────────────────── */
+[data-theme="light"] {
+  --bg:           #f1f5f9;
+  --card:         #ffffff;
+  --control:      #f1f5f9;
+  --muted-bg:     #e2e8f0;
+  --line:         #cbd5e1;
+  --line-subtle:  #e2e8f0;
+  --fg:           #0f172a;
+  --fg-2:         #334155;
+  --fg-3:         #64748b;
+  --fg-4:         #94a3b8;
+}
+
+/* ─── Global base ───────────────────────────────────────────────────────── */
+html {
+  font-size: var(--fs-base);
+}
+
+body {
+  font-family: var(--font-family);
+}

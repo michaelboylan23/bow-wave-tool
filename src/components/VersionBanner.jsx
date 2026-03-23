@@ -72,7 +72,7 @@ export default function VersionBanner() {
           href={DOWNLOAD_URL}
           target="_blank"
           rel="noreferrer"
-          className="text-xs bg-amber-600 hover:bg-amber-500 text-white font-medium px-3 py-1 rounded-lg transition-colors"
+          className="text-xs bg-amber-600 hover:bg-amber-500 text-fg font-medium px-3 py-1 rounded-lg transition-colors"
         >
           Download Latest
         </a>

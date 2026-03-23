@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/mboylan/.claude/projects/c--Users-mboylan-Documents-bow-wave-tool/memory/**)",
+      "Bash(npm run:*)",
+      "Bash(grep -v \"^$\")"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\mboylan\\.claude\\projects\\c--Users-mboylan-Documents-bow-wave-tool\\memory"
+    ]
+  }
+}
