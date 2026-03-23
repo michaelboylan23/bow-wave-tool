@@ -1,6 +1,6 @@
 # Bow Wave Analysis Tool — Architecture & Progress
 
-**Last Updated:** March 2026 (session 3)
+**Last Updated:** March 2026 (session 4)
 **Current Phase:** Phase 1 — POC / Portable Desktop App
 
 ---
@@ -16,7 +16,7 @@ A browser-based tool that accepts multiple Primavera P6 schedule exports (CSV, E
 | Layer | Choice | Rationale |
 |---|---|---|
 | Framework | React (via Vite) | Already validated in prior projects; fast dev server; clean static build |
-| Styling | Tailwind CSS | Already in stack; utility-first keeps POC moving fast |
+| Styling | Tailwind CSS v4 (via `@tailwindcss/vite`) | No `tailwind.config.js` — all config in `src/index.css`; `@theme inline` maps CSS vars to utility tokens for runtime theming |
 | Charting | Recharts | React-native, composable, handles stacked bar + custom tooltips cleanly |
 | CSV Parsing | PapaParse | Handles encoding, BOM, quoted fields — more reliable than manual split |
 | Excel Parsing | SheetJS (xlsx) | Standard for client-side .xlsx/.xls binary reading |
@@ -95,6 +95,15 @@ A browser-based tool that accepts multiple Primavera P6 schedule exports (CSV, E
 | Zoom state persisted across tab switches and in .bwt save/load | ✅ Complete |
 | Redistribution scenario selection persists across tab switches | ✅ Complete |
 | Export PDF — print dialog, landscape, logo + metadata header, no zoom bar | ✅ Complete |
+| Export PDF — theme-aware colors (reads CSS vars at call time) | ✅ Complete |
+| Export PDF — KPI cards included below chart | ✅ Complete |
+| Light/dark mode toggle (header button, persists to localStorage) | ✅ Complete |
+| Configure tab — Primary/Accent/Secondary Accent color pickers | ✅ Complete |
+| Configure tab — font size (S/M/L) and font family selector | ✅ Complete |
+| Configure tab — Reset to Defaults | ✅ Complete |
+| Logo switches by theme (`logo.png` dark, `logo_navy.png` light) | ✅ Complete |
+| 3-color system wired through all charts and KPI cards | ✅ Complete |
+| Thicker data date reference lines on all charts | ✅ Complete |
 | Browser-based session persistence (survive page refresh) | 🔴 Not Started (deprioritized) |
 | **Save/Load — Production:** Save session JSON to SharePoint library via MS Graph | 🔴 Not Started |
 | **Save/Load — Production:** Browse & load project files from SharePoint library | 🔴 Not Started |
@@ -112,26 +121,28 @@ bow-wave-tool/
 │   └── main.cjs                 ✅ Electron entry point (CommonJS — required due to "type": "module" in package.json)
 ├── public/
 │   ├── app_icon.ico             ✅ App icon (must be 256x256+)
-│   └── logo.png
+│   ├── logo.png                 ✅ Logo for dark mode
+│   └── logo_navy.png            ✅ Logo for light mode
 ├── release/                     🚫 Gitignored — output folder for built .exe
 │   └── Bow Wave Analysis X.X.X.exe
 ├── src/
 │   ├── components/
 │   │   ├── ActivityFilter.jsx        ✅ Kept in repo but no longer used in main flow
-│   │   ├── BowWaveChart.jsx          ✅ Recharts stacked bar chart; supports Group By category split
+│   │   ├── BowWaveChart.jsx          ✅ Recharts stacked bar chart; Group By split; renders KpiCards inside exportRef
 │   │   ├── BowWaveMagnitudeChart.jsx ✅ Line chart — in-flight work trend across N schedules
 │   │   ├── ColumnMapper.jsx          ✅ Single-file column mapping UI (kept for reference)
+│   │   ├── ConfigureTab.jsx          ✅ Theme toggle, 3 color pickers, font size/family, Reset to Defaults
 │   │   ├── DualColumnMapper.jsx      ✅ Both schedules side by side, one confirm button
-│   │   ├── DualRangeSlider.jsx       ✅ Two-thumb range slider; pointer-move z-index fix for left thumb
+│   │   ├── DualRangeSlider.jsx       ✅ Two-thumb range slider; track/thumbs follow Primary Color
 │   │   ├── FileUpload.jsx            ✅ Drag & drop N-file upload; shared column mapping; no filter step
 │   │   ├── FilterBar.jsx             ✅ Add/remove filter columns; multi-select; applies to all schedules
-│   │   ├── Header.jsx                ✅ Logo, project info, Save/New Project, Report a Bug buttons
+│   │   ├── Header.jsx                ✅ Logo (theme-aware), project info, Save/New Project, theme toggle, Report a Bug
 │   │   ├── Instructions.jsx          ✅ Full step-by-step instructions page
-│   │   ├── KpiCards.jsx              ✅ Planned/Actual/Delta cards
-│   │   ├── MultiScheduleChart.jsx    ✅ Trend charts container for Multi-Schedule Trend tab
+│   │   ├── KpiCards.jsx              ✅ Planned/Actual/Delta cards; renders as fragment; colors follow accent system
+│   │   ├── MultiScheduleChart.jsx    ✅ Trend charts container; latest=Primary, previous=SecondaryAccent cycling
 │   │   ├── ProjectInfo.jsx           ✅ Project name + number inputs
 │   │   ├── RemapColumnsModal.jsx     ✅ Re-parse all files with a new column mapping
-│   │   ├── SCurveChart.jsx           ✅ Cumulative planned hours S-curve, one line per schedule
+│   │   ├── SCurveChart.jsx           ✅ Cumulative planned hours S-curve; latest=Primary, others=SecondaryAccent cycling
 │   │   ├── ScheduleData.jsx          ✅ Virtualized activity table with filters + column manager
 │   │   ├── ScenarioTabs.jsx          ✅ 4 redistribution scenario tabs; state initialized from scenarioConfig prop
 │   │   ├── VersionBanner.jsx         ✅ Checks GitHub Releases on launch; green toast or amber update banner
@@ -143,6 +154,10 @@ bow-wave-tool/
 │   │   ├── parseExcel.js        ✅ SheetJS wrapper
 │   │   ├── parseFile.js         ✅ Format dispatcher
 │   │   └── parseXer.js          ✅ Custom XER parser — validated with real file
+│   ├── contexts/
+│   │   └── ThemeContext.jsx     ✅ theme, accent, accentB, accentC, fontSize, fontFamily — persists to localStorage
+│   ├── hooks/
+│   │   └── useChartColors.js   ✅ Returns theme-aware color strings for Recharts SVG props; accent values from context (not CSS vars) to avoid timing lag
 │   ├── utils/
 │   │   ├── applyMapping.js      ✅ Remaps raw rows to standard fields (preserves all cols)
 │   │   ├── bowWaveCalc.js       ✅ Core bow wave calculation
@@ -150,16 +165,15 @@ bow-wave-tool/
 │   │   │                           Exports: buildChartData, buildBowWaveMagnitudeData,
 │   │   │                                    buildSCurveData, buildChartDataByCategory
 │   │   ├── columnMapping.js     ✅ Auto-match logic + aliases + required fields
-│   │   ├── exportChart.js       ✅ Print-to-PDF via window.print(); hides UI controls, shows logo + metadata
+│   │   ├── exportChart.js       ✅ Print-to-PDF via window.print(); reads CSS vars at call time for theme-aware colors; logo from DOM img (theme-aware automatically)
 │   │   └── trackUsage.js        ✅ Appends ISO timestamp to GitHub Gist on app open
 │   ├── App.jsx                  ✅ Root layout, state, tab routing
-│   ├── main.jsx
-│   └── index.css
+│   ├── main.jsx                 ✅ Wraps app in ThemeProvider
+│   └── index.css                ✅ Tailwind v4 config; @theme inline; dark + light CSS var palettes
 ├── .gitignore                   ✅ Excludes node_modules/, dist/, release/
 ├── index.html
-├── vite.config.js               ✅ base: './' required for Electron file:// protocol
-├── tailwind.config.js
-└── package.json
+├── vite.config.js               ✅ base: './' required for Electron file:// protocol; injects __APP_VERSION__
+└── package.json                 ✅ Version field drives .exe filename — run npm install after bumping
 ```
 
 ---
@@ -208,11 +222,14 @@ npm run electron:build
 ## 7. Distribution Workflow
 
 1. Make code changes and test via `npm run dev`
-2. Bump `"version"` in `package.json` (e.g. `"1.0.0"` → `"1.1.0"`)
-3. Open PowerShell **as Administrator**
-4. Run `npm run electron:build`
-5. Find `release/Bow Wave Analysis X.X.X.exe`
-6. Upload to SharePoint shared folder or send directly to team
+2. Bump `"version"` in `package.json` (e.g. `"1.1.1"` → `"1.2.0"`)
+3. Commit and push changes via git
+4. Open PowerShell **as Administrator**
+5. Run `git pull`
+6. Run `npm install` — **required** to sync `package-lock.json`; electron-builder reads the version from the lockfile, not `package.json` directly
+7. Run `npm run electron:build`
+8. Find `release/Bow Wave Analysis X.X.X.exe`
+9. Upload to SharePoint shared folder or send directly to team
 
 ---
 
@@ -345,7 +362,7 @@ P6 stores durations in raw hours in XER. Excel exports divide by `day_hr_cnt`. T
 | Electron portable build | ✅ Complete | Must build from Admin PowerShell due to symlink requirement |
 | SharePoint library URL | 🟡 Pending | Needed for Phase 3 Graph API integration |
 | Azure subscription access | 🟡 Pending | IT may need to provision or approve |
-| Logo file | ✅ Complete | `public/logo.png` |
+| Logo files | ✅ Complete | `public/logo.png` (dark mode), `public/logo_navy.png` (light mode) |
 
 ---
 
