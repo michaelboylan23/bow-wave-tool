@@ -42,7 +42,7 @@ function EditableField({ value, onChange, placeholder, className }) {
 export default function Header({
   projectName, projectNumber,
   onProjectNameChange, onProjectNumberChange,
-  hasAnalysis, onSave, onNewProject,
+  hasAnalysis, onSave, onNewProject, onReportBug,
 }) {
   return (
     <header className="w-full bg-gray-900 border-b border-gray-800 px-8 py-4">
@@ -77,26 +77,34 @@ export default function Header({
         </div>
 
         {/* Actions */}
-        {projectName && (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={onSave}
-              disabled={!hasAnalysis}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors
-                ${hasAnalysis
-                  ? 'bg-blue-600 hover:bg-blue-500 text-white'
-                  : 'bg-gray-800 text-gray-500 cursor-not-allowed'}`}
-            >
-              Save Project
-            </button>
-            <button
-              onClick={onNewProject}
-              className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-800 text-gray-300 hover:text-white hover:bg-gray-700 transition-colors"
-            >
-              New Project
-            </button>
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          {projectName && (
+            <>
+              <button
+                onClick={onSave}
+                disabled={!hasAnalysis}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors
+                  ${hasAnalysis
+                    ? 'bg-blue-600 hover:bg-blue-500 text-white'
+                    : 'bg-gray-800 text-gray-500 cursor-not-allowed'}`}
+              >
+                Save Project
+              </button>
+              <button
+                onClick={onNewProject}
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-800 text-gray-300 hover:text-white hover:bg-gray-700 transition-colors"
+              >
+                New Project
+              </button>
+            </>
+          )}
+          <button
+            onClick={onReportBug}
+            className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-800 text-gray-300 hover:text-red-400 hover:bg-gray-700 transition-colors"
+          >
+            Report a Bug
+          </button>
+        </div>
 
       </div>
     </header>

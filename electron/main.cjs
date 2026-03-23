@@ -1,4 +1,4 @@
-const { app, BrowserWindow } = require('electron')
+const { app, BrowserWindow, shell } = require('electron')
 const path = require('path')
 
 function createWindow() {
@@ -13,6 +13,12 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
     },
+  })
+
+  // Open external URLs (e.g. GitHub release page) in the system browser
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url)
+    return { action: 'deny' }
   })
 
   // In production load the built index.html, in dev load Vite dev server

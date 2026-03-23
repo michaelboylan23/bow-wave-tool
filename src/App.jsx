@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import Header from './components/Header'
 import FileUpload from './components/FileUpload'
 import Instructions from './components/Instructions'
@@ -13,6 +13,9 @@ import { buildChartData, buildMultiSeriesData, buildBowWaveMagnitudeData, buildS
 import { calcBowWave } from './utils/bowWaveCalc'
 import ScheduleData from './components/ScheduleData'
 import FilterBar from './components/FilterBar'
+import VersionBanner from './components/VersionBanner'
+import BugReportModal from './components/BugReportModal'
+import { trackOpen } from './utils/trackUsage'
 import {
   EXAMPLE_SCHEDULE_A, EXAMPLE_SCHEDULE_B,
   EXAMPLE_DATA_DATE_A, EXAMPLE_DATA_DATE_B,
@@ -32,6 +35,9 @@ function applyFilterConfig(activities, fc) {
 }
 
 export default function App() {
+  // ── Track app opens ─────────────────────────────────────────────────────────
+  useEffect(() => { trackOpen() }, [])
+
   // ── Session data ────────────────────────────────────────────────────────────
   // Each schedule: { id, fileName, dataDate, rawRows, filteredRows }
   const [uploadedSchedules, setUploadedSchedules] = useState([])
@@ -68,6 +74,7 @@ export default function App() {
 
   // ── UI state ────────────────────────────────────────────────────────────────
   const [activeTab,           setActiveTab]           = useState('Analysis')
+  const [bugReportOpen,       setBugReportOpen]       = useState(false)
   const [confirmingNew,       setConfirmingNew]       = useState(false)
   const [confirmingOverwrite, setConfirmingOverwrite] = useState(false)
   const [pendingUpload,       setPendingUpload]       = useState(null)
@@ -487,7 +494,10 @@ export default function App() {
         hasAnalysis={hasAnalysis}
         onSave={handleSave}
         onNewProject={() => setConfirmingNew(true)}
+        onReportBug={() => setBugReportOpen(true)}
       />
+      <VersionBanner />
+      {bugReportOpen && <BugReportModal onClose={() => setBugReportOpen(false)} />}
 
       {/* ── Confirm New Project ── */}
       {confirmingNew && (
