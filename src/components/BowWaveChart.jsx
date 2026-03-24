@@ -61,12 +61,21 @@ export default function BowWaveChart({
   categoryChartData,
   zoomStart, zoomEnd, onZoomChange,
   projectName, projectNumber, scenarioConfig,
+  categoryOverrides, onCategoryOverridesChange,
 }) {
   const exportRef = useRef(null)
   const cc = useChartColors()
 
+  // ── Overrides helpers ────────────────────────────────────────────────────────
+  const getOv  = (key) => categoryOverrides?.[key] || {}
+  const setOv  = (key, field, val) =>
+    onCategoryOverridesChange(prev => ({ ...prev, [key]: { ...(prev[key] || {}), [field]: val } }))
+
   const activeData = categoryChartData ? categoryChartData.chartData : chartData
   if (!activeData || activeData.length === 0) return null
+
+  const allCategories  = categoryChartData?.categories ?? []
+  const visibleCats    = allCategories.filter(c => !getOv(c).hidden)
 
   const startIdx = zoomStart
   const endIdx   = zoomEnd < 0 ? activeData.length - 1 : Math.min(zoomEnd, activeData.length - 1)
@@ -77,7 +86,7 @@ export default function BowWaveChart({
   const visibleData = activeData.slice(startIdx, endIdx + 1).map(d => {
     const row = { ...d, bowWave: toVal(d.bowWave) }
     if (categoryChartData) {
-      for (const cat of categoryChartData.categories) {
+      for (const cat of allCategories) {
         row[`cat__${cat}`]      = toVal(d[`cat__${cat}`] || 0)
         row[`cat__${cat}__bw`]  = toVal(d[`cat__${cat}__bw`] || 0)
       }
@@ -87,7 +96,15 @@ export default function BowWaveChart({
     return row
   })
 
-  const categories = categoryChartData?.categories ?? []
+  // Effective color helpers
+  const catColor      = (cat, i) => getOv(cat).color || CAT_COLORS[i % CAT_COLORS.length]
+  const plannedColor  = () => getOv('__planned__').color || cc.accent
+  const bowWaveColor  = () => getOv('__bowwave__').color || cc.accentB
+  const plannedLabel  = () => getOv('__planned__').label?.trim() ||
+    (baseSchedule === 'A' ? 'Planned Work (Schedule 1)' : 'Planned Work (Schedule 2)')
+  const bowWaveLabel  = () => getOv('__bowwave__').label?.trim() || 'Bow Wave'
+
+  const categories = visibleCats
 
   const SCENARIO_LABELS = {
     'front-load':            'Front-Load',
@@ -149,8 +166,8 @@ export default function BowWaveChart({
 
           {/* Hatch patterns for bow wave portions — one per category color */}
           <defs>
-            {categories.map((_, i) => {
-              const color = CAT_COLORS[i % CAT_COLORS.length]
+            {allCategories.map((cat, i) => {
+              const color = catColor(cat, i)
               return (
                 <pattern key={i} id={`bw-hatch-${i}`} x="0" y="0" width="8" height="8"
                   patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
@@ -166,6 +183,7 @@ export default function BowWaveChart({
             tick={{ fill: cc.tick, fontSize: 11 }}
             angle={-45}
             textAnchor="end"
+            tickMargin={12}
             interval="preserveStartEnd"
           />
           <YAxis
@@ -182,32 +200,41 @@ export default function BowWaveChart({
           <Legend wrapperStyle={{ paddingTop: '20px', color: cc.tick, fontSize: '12px' }} />
           <ReferenceLine
             x={dataLabel}
-            stroke={cc.accentB}
+            stroke={bowWaveColor()}
             strokeWidth={2}
             strokeDasharray="4 4"
-            label={{ value: 'Data Date 2', position: 'insideTopRight', fill: cc.accentB, fontSize: 11, offset: 10 }}
+            label={{ value: 'Data Date 2', position: 'insideTopRight', fill: bowWaveColor(), fontSize: 11, offset: 10 }}
           />
 
           {categoryChartData
             ? [
-                // Solid planned bars per category
-                ...categories.map((cat, i) => (
-                  <Bar key={cat} dataKey={`cat__${cat}`} name={cat} stackId="a"
-                    fill={CAT_COLORS[i % CAT_COLORS.length]} radius={[0, 0, 0, 0]} />
-                )),
-                // Hatched bow wave bars per category — hidden from legend
-                ...categories.map((cat, i) => (
-                  <Bar key={`${cat}__bw`} dataKey={`cat__${cat}__bw`} name={`${cat} (Bow Wave)`}
-                    stackId="a" fill={`url(#bw-hatch-${i % CAT_COLORS.length})`}
-                    radius={[4, 4, 0, 0]} legendType="none" />
-                )),
+                // Solid planned bars per visible category
+                ...categories.map((cat) => {
+                  const i = allCategories.indexOf(cat)
+                  return (
+                    <Bar key={cat} dataKey={`cat__${cat}`}
+                      name={getOv(cat).label?.trim() || cat}
+                      stackId="a" fill={catColor(cat, i)} radius={[0, 0, 0, 0]} />
+                  )
+                }),
+                // Hatched bow wave bars per visible category — hidden from legend
+                ...categories.map((cat) => {
+                  const i = allCategories.indexOf(cat)
+                  return (
+                    <Bar key={`${cat}__bw`} dataKey={`cat__${cat}__bw`}
+                      name={`${getOv(cat).label?.trim() || cat} (Bow Wave)`}
+                      stackId="a" fill={`url(#bw-hatch-${i})`}
+                      radius={[4, 4, 0, 0]} legendType="none" />
+                  )
+                }),
               ]
             : [
                 <Bar key="planned" dataKey="planned"
-                  name={baseSchedule === 'A' ? 'Planned Work (Schedule 1)' : 'Planned Work (Schedule 2)'}
-                  stackId="a" fill={cc.accent} radius={[0, 0, 0, 0]} />,
-                <Bar key="bowWave" dataKey="bowWave" name="Bow Wave" stackId="a"
-                  fill={cc.accentB} radius={[4, 4, 0, 0]} />,
+                  name={plannedLabel()}
+                  stackId="a" fill={plannedColor()} radius={[0, 0, 0, 0]} />,
+                <Bar key="bowWave" dataKey="bowWave"
+                  name={bowWaveLabel()}
+                  stackId="a" fill={bowWaveColor()} radius={[4, 4, 0, 0]} />,
               ]
           }
         </BarChart>
@@ -252,6 +279,102 @@ export default function BowWaveChart({
           startLabel={activeData[startIdx]?.month}
           endLabel={activeData[endIdx]?.month}
         />
+      </div>
+
+      {/* In View controls */}
+      <div className="border-t border-line-subtle pt-4">
+        <p className="text-xs text-fg-4 uppercase tracking-wide font-medium mb-3">
+          {categoryChartData ? 'Categories in View' : 'Series in View'}
+        </p>
+        <div className="flex flex-col gap-2">
+          {categoryChartData
+            ? allCategories.map((cat, i) => {
+                const ov     = getOv(cat)
+                const hidden = ov.hidden === true
+                const color  = catColor(cat, i)
+                const inputVal = ov.label != null ? ov.label : cat
+                return (
+                  <div key={cat}
+                    className={`flex items-center gap-2 text-xs transition-opacity ${hidden ? 'opacity-40' : ''}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={!hidden}
+                      onChange={e => setOv(cat, 'hidden', !e.target.checked)}
+                      className="w-3.5 h-3.5 shrink-0 cursor-pointer accent-accent"
+                      title={hidden ? 'Include in chart' : 'Exclude from chart'}
+                    />
+                    <label className="relative shrink-0 cursor-pointer" title="Click to change color">
+                      <span className="flex w-4 h-4 rounded-sm border border-line/50"
+                        style={{ background: color }} />
+                      <input
+                        key={ov.color || color}
+                        type="color"
+                        className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                        defaultValue={ov.color || color}
+                        onBlur={e => setOv(cat, 'color', e.target.value)}
+                      />
+                    </label>
+                    {ov.color && (
+                      <button
+                        onClick={() => setOv(cat, 'color', null)}
+                        className="shrink-0 text-fg-4 hover:text-fg leading-none"
+                        title="Reset to default color"
+                      >↺</button>
+                    )}
+                    <input
+                      type="text"
+                      value={inputVal}
+                      onChange={e => setOv(cat, 'label', e.target.value)}
+                      onBlur={e => { if (!e.target.value.trim()) setOv(cat, 'label', null) }}
+                      className="flex-1 min-w-0 bg-transparent border-b border-transparent
+                        hover:border-line focus:border-accent outline-none py-0.5 text-fg-3"
+                      placeholder={cat}
+                    />
+                  </div>
+                )
+              })
+            : [
+                { key: '__planned__', defaultColor: cc.accent,   defaultLabel: plannedLabel()  },
+                { key: '__bowwave__', defaultColor: cc.accentB,  defaultLabel: bowWaveLabel()  },
+              ].map(({ key, defaultColor, defaultLabel }) => {
+                const ov    = getOv(key)
+                const color = ov.color || defaultColor
+                const inputVal = ov.label != null ? ov.label : defaultLabel
+                return (
+                  <div key={key} className="flex items-center gap-2 text-xs">
+                    <label className="relative shrink-0 cursor-pointer" title="Click to change color">
+                      <span className="flex w-4 h-4 rounded-sm border border-line/50"
+                        style={{ background: color }} />
+                      <input
+                        key={color}
+                        type="color"
+                        className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                        defaultValue={color}
+                        onBlur={e => setOv(key, 'color', e.target.value)}
+                      />
+                    </label>
+                    {ov.color && (
+                      <button
+                        onClick={() => setOv(key, 'color', null)}
+                        className="shrink-0 text-fg-4 hover:text-fg leading-none"
+                        title="Reset to default color"
+                      >↺</button>
+                    )}
+                    <input
+                      type="text"
+                      value={inputVal}
+                      onChange={e => setOv(key, 'label', e.target.value)}
+                      onBlur={e => { if (!e.target.value.trim()) setOv(key, 'label', null) }}
+                      className="flex-1 min-w-0 bg-transparent border-b border-transparent
+                        hover:border-line focus:border-accent outline-none py-0.5 text-fg-3"
+                      placeholder={defaultLabel}
+                    />
+                  </div>
+                )
+              })
+          }
+        </div>
       </div>
     </div>
   )

@@ -81,9 +81,10 @@ function computeBowWaveByMonth(months, windowEnd, deltaHrs, scenario, recoveryDa
 // Build multi-schedule trend data.
 // schedules: [{ id, fileName, dataDate, filteredRows }] — sorted by dataDate ascending inside this fn.
 // baselineId: optional id of the schedule to mark as baseline.
-// Returns { monthLabels: string[], series: [{ id, fileName, dataDate, isLatest, isBaseline, dataByMonth }] }
-export function buildMultiSeriesData(schedules, baselineId = null) {
-  if (!schedules || schedules.length === 0) return { monthLabels: [], series: [] }
+// groupByColumn: optional column name; when provided, each series includes dataByCategory.
+// Returns { monthLabels, series: [{ id, fileName, dataDate, isLatest, isBaseline, dataByMonth, categories, dataByCategory }], allCategories }
+export function buildMultiSeriesData(schedules, baselineId = null, groupByColumn = null) {
+  if (!schedules || schedules.length === 0) return { monthLabels: [], series: [], allCategories: [] }
 
   const sorted = [...schedules].sort((a, b) => new Date(a.dataDate) - new Date(b.dataDate))
 
@@ -91,7 +92,7 @@ export function buildMultiSeriesData(schedules, baselineId = null) {
   const allStarts = allActivities.map(a => a.start_date).filter(Boolean).map(d => new Date(d)).filter(d => !isNaN(d))
   const allEnds   = allActivities.map(a => a.end_date).filter(Boolean).map(d => new Date(d)).filter(d => !isNaN(d))
 
-  if (!allStarts.length || !allEnds.length) return { monthLabels: [], series: [] }
+  if (!allStarts.length || !allEnds.length) return { monthLabels: [], series: [], allCategories: [] }
 
   const projectStart = new Date(Math.min(...allStarts))
   const projectEnd   = new Date(Math.max(...allEnds))
@@ -116,17 +117,43 @@ export function buildMultiSeriesData(schedules, baselineId = null) {
       ) / 10
     }
 
+    // Per-category remaining work — only computed when groupByColumn is provided
+    let dataByCategory = null
+    let categories = []
+    if (groupByColumn) {
+      categories = [...new Set(
+        remaining.map(a => String(a[groupByColumn] ?? '')).filter(Boolean)
+      )].sort()
+      dataByCategory = {}
+      for (const cat of categories) {
+        dataByCategory[cat] = {}
+        const catActs = remaining.filter(a => String(a[groupByColumn] ?? '') === cat)
+        for (const m of months) {
+          const label = formatMonthLabel(m)
+          dataByCategory[cat][label] = Math.round(
+            catActs.reduce((sum, act) => sum + hoursInMonth(act, monthStart(m), monthEnd(m)), 0) * 10
+          ) / 10
+        }
+      }
+    }
+
     return {
-      id:         s.id,
-      fileName:   s.fileName,
-      dataDate:   s.dataDate,
-      isLatest:   i === sorted.length - 1,
-      isBaseline: s.id === baselineId,
+      id:            s.id,
+      fileName:      s.fileName,
+      dataDate:      s.dataDate,
+      isLatest:      i === sorted.length - 1,
+      isBaseline:    s.id === baselineId,
       dataByMonth,
+      categories,
+      dataByCategory,
     }
   })
 
-  return { monthLabels, series }
+  const allCategories = groupByColumn
+    ? [...new Set(series.flatMap(s => s.categories))].sort()
+    : []
+
+  return { monthLabels, series, allCategories }
 }
 
 // Build in-flight work trend — one data point per schedule.

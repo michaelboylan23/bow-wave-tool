@@ -78,7 +78,13 @@ export function exportChart(element, metaLines = [], filename = 'chart') {
         box-sizing: border-box !important;
       }
       .--print-target * { visibility: visible !important; }
-      .--print-target svg { overflow: visible !important; }
+      /* Prevent chart SVG from overflowing the page margins.
+         max-width + height:auto scales proportionally via the SVG viewBox. */
+      .--print-target svg {
+        overflow: visible !important;
+        max-width: 100% !important;
+        height: auto !important;
+      }
     }
   `
   document.head.appendChild(style)

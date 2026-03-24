@@ -66,6 +66,13 @@ export default function App() {
 
   // Category grouping (two-schedule chart)
   const [groupByColumn, setGroupByColumn] = useState(null)
+  // Category grouping (multi-schedule chart)
+  const [multiGroupByColumn, setMultiGroupByColumn] = useState(null)
+  // Per-series display overrides — survive tab switches, reset on new upload
+  const [multiSeriesOverrides, setMultiSeriesOverrides] = useState({})
+  const [sCurveSeriesOverrides, setSCurveSeriesOverrides] = useState({})
+  const [magnitudeScheduleOverrides, setMagnitudeScheduleOverrides] = useState({})
+  const [bowWaveCategoryOverrides, setBowWaveCategoryOverrides] = useState({})
 
   // Track whether multi-schedule analysis has been run
   const [multiScheduleRun, setMultiScheduleRun] = useState(false)
@@ -85,6 +92,7 @@ export default function App() {
   // ── UI state ────────────────────────────────────────────────────────────────
   const [activeTab,           setActiveTab]           = useState('Analysis')
   const [bugReportOpen,       setBugReportOpen]       = useState(false)
+  const [configureOpen,       setConfigureOpen]       = useState(false)
   const [remapOpen,           setRemapOpen]           = useState(false)
   const [confirmingNew,       setConfirmingNew]       = useState(false)
   const [confirmingOverwrite, setConfirmingOverwrite] = useState(false)
@@ -123,9 +131,9 @@ export default function App() {
 
   const multiSeriesData = useMemo(() =>
     multiScheduleRun && hasSchedules
-      ? buildMultiSeriesData(uploadedSchedules, baselineId)
+      ? buildMultiSeriesData(uploadedSchedules, baselineId, multiGroupByColumn)
       : null,
-    [uploadedSchedules, multiScheduleRun, hasSchedules, baselineId]
+    [uploadedSchedules, multiScheduleRun, hasSchedules, baselineId, multiGroupByColumn]
   )
 
   const bowWaveMagnitudeData = useMemo(() =>
@@ -174,6 +182,11 @@ export default function App() {
     setBowWaveResult(null)
     setTwoSchedInfo(null)
     setGroupByColumn(null)
+    setMultiGroupByColumn(null)
+    setMultiSeriesOverrides({})
+    setSCurveSeriesOverrides({})
+    setMagnitudeScheduleOverrides({})
+    setBowWaveCategoryOverrides({})
     setMultiScheduleRun(false)
     // Pre-select first two schedules as the default pair
     if (schedules.length >= 2) {
@@ -200,41 +213,36 @@ export default function App() {
     setConfirmingOverwrite(false)
   }
 
-  // ── Two-schedule analysis ───────────────────────────────────────────────────
-  const runTwoScheduleAnalysis = () => {
+  // ── Combined run ─────────────────────────────────────────────────────────────
+  const runAllAnalyses = () => {
+    let twoSchedOk = false
     const [idA, idB] = selectedPair
-    if (!idA || !idB || idA === idB) return
-    const sA = uploadedSchedules.find(s => s.id === idA)
-    const sB = uploadedSchedules.find(s => s.id === idB)
-    if (!sA || !sB) return
-
-    const dA = new Date(sA.dataDate)
-    const dB = new Date(sB.dataDate)
-    const [early, late] = dA <= dB ? [sA, sB] : [sB, sA]
-
-    try {
-      const result = calcBowWave(early.filteredRows, late.filteredRows, early.dataDate, late.dataDate)
-      setBowWaveResult(result)
-      setBowWaveZoom({ start: 0, end: -1 })
-      setTwoSchedInfo({
-        earlyId:   early.id,   lateId:   late.id,
-        earlyFile: early.fileName, lateFile: late.fileName,
-        earlyDate: early.dataDate, lateDate: late.dataDate,
-      })
-      setAnalysisMode('two-schedule')
-      setActiveTab('Bow Wave')
-    } catch (err) {
-      alert('Analysis failed: ' + err.message)
+    if (idA && idB && idA !== idB) {
+      const sA = uploadedSchedules.find(s => s.id === idA)
+      const sB = uploadedSchedules.find(s => s.id === idB)
+      if (sA && sB) {
+        const dA = new Date(sA.dataDate)
+        const dB = new Date(sB.dataDate)
+        const [early, late] = dA <= dB ? [sA, sB] : [sB, sA]
+        try {
+          const result = calcBowWave(early.filteredRows, late.filteredRows, early.dataDate, late.dataDate)
+          setBowWaveResult(result)
+          setBowWaveZoom({ start: 0, end: -1 })
+          setTwoSchedInfo({
+            earlyId: early.id, lateId: late.id,
+            earlyFile: early.fileName, lateFile: late.fileName,
+            earlyDate: early.dataDate, lateDate: late.dataDate,
+          })
+          twoSchedOk = true
+        } catch (err) {
+          alert('Bow wave analysis failed: ' + err.message)
+        }
+      }
     }
-  }
-
-  // ── Multi-schedule analysis ─────────────────────────────────────────────────
-  const runMultiScheduleAnalysis = () => {
-    setAnalysisMode('multi-schedule')
     setMultiScheduleRun(true)
     setSCurveZoom({ start: 0, end: -1 })
     setMultiChartZoom({ start: 0, end: -1 })
-    setActiveTab('Trend')
+    setActiveTab(twoSchedOk ? 'Bow Wave' : 'Trend')
   }
 
   // ── Edit data dates (two-schedule mode) ────────────────────────────────────
@@ -508,8 +516,6 @@ export default function App() {
     { key: 'Bow Wave',      label: 'Two-Schedule Bow Wave', show: hasTwoSchedResult },
     { key: 'Trend',         label: 'Multi-Schedule Trend',  show: hasMultiResult },
     { key: 'Schedule Data', label: 'Schedule Data',         show: hasAnalysis },
-    { key: 'Example',       label: 'Example Project',       show: true },
-    { key: 'Configure',     label: 'Configure',             show: true },
   ]
 
   return (
@@ -524,9 +530,26 @@ export default function App() {
         onSave={handleSave}
         onNewProject={() => setConfirmingNew(true)}
         onReportBug={() => setBugReportOpen(true)}
+        onConfigure={() => setConfigureOpen(true)}
       />
       <VersionBanner />
       {bugReportOpen && <BugReportModal onClose={() => setBugReportOpen(false)} />}
+
+      {/* ── Configure Modal ── */}
+      {configureOpen && (
+        <div className="fixed inset-0 bg-black/60 flex items-start justify-end z-50"
+          onClick={() => setConfigureOpen(false)}>
+          <div className="bg-bg h-full w-full max-w-lg overflow-y-auto p-8 flex flex-col gap-6 shadow-2xl"
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h2 className="text-fg font-bold text-lg">Settings</h2>
+              <button onClick={() => setConfigureOpen(false)}
+                className="text-fg-4 hover:text-fg text-xl leading-none transition-colors">✕</button>
+            </div>
+            <ConfigureTab />
+          </div>
+        </div>
+      )}
       {remapOpen && (
         <RemapColumnsModal
           headers={columnHeaders}
@@ -652,9 +675,7 @@ export default function App() {
                 className={`px-4 py-1 text-sm font-medium transition-colors border-b-2 -mb-px
                   ${activeTab === tab.key
                     ? 'border-blue-500 text-fg'
-                    : tab.key === 'Example'
-                      ? 'border-transparent text-fg-4 hover:text-green-400'
-                      : 'border-transparent text-fg-3 hover:text-fg'}`}
+                    : 'border-transparent text-fg-3 hover:text-fg'}`}
               >
                 {tab.label}
               </button>
@@ -664,34 +685,35 @@ export default function App() {
           {/* ── Instructions ── */}
           {activeTab === 'Instructions' && <Instructions />}
 
-          {/* ── Example ── */}
-          {activeTab === 'Example' && (
-            <div className="flex flex-col gap-4 max-w-sm">
-              <p className="text-fg-3 text-sm">
-                Load a pre-built example project to explore the tool without uploading real schedule files.
-              </p>
-              <button onClick={loadExample}
-                className="bg-green-700 hover:bg-green-600 text-fg font-semibold py-3 rounded-xl transition-colors text-sm">
-                ⚡ Load Example Project
-              </button>
-            </div>
-          )}
-
           {/* ── Analysis Tab ── */}
           {activeTab === 'Analysis' && (
             <div className="flex flex-col gap-8">
 
-              {/* Load existing project */}
-              <div className="max-w-3xl bg-card rounded-xl p-5 flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-fg text-sm font-medium">Load Existing Project</p>
-                  <p className="text-fg-3 text-xs mt-0.5">Restore a previously saved .bwt project file</p>
+              {/* Load / Example row */}
+              <div className="max-w-3xl flex flex-col gap-3">
+                <div className="bg-card rounded-xl p-5 flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-fg text-sm font-medium">Load Existing Project</p>
+                    <p className="text-fg-3 text-xs mt-0.5">Restore a previously saved .bwt project file</p>
+                  </div>
+                  <label className="cursor-pointer bg-control hover:bg-muted text-fg-2 hover:text-fg
+                    text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+                    Browse...
+                    <input type="file" accept=".bwt" onChange={handleLoad} className="hidden" />
+                  </label>
                 </div>
-                <label className="cursor-pointer bg-control hover:bg-muted text-fg-2 hover:text-fg
-                  text-sm font-medium px-4 py-2 rounded-lg transition-colors">
-                  Browse...
-                  <input type="file" accept=".bwt" onChange={handleLoad} className="hidden" />
-                </label>
+
+                <div className="bg-card rounded-xl p-5 flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-fg text-sm font-medium">Example Project</p>
+                    <p className="text-fg-3 text-xs mt-0.5">Load a pre-built example to explore the tool without uploading real schedule files</p>
+                  </div>
+                  <button onClick={loadExample}
+                    className="bg-green-700 hover:bg-green-600 text-fg font-semibold
+                      px-4 py-2 rounded-lg transition-colors text-sm shrink-0">
+                    ⚡ Load Example
+                  </button>
+                </div>
               </div>
 
               <div className="max-w-3xl flex items-center gap-3">
@@ -780,105 +802,81 @@ export default function App() {
                         </div>
                       </div>
 
-                      {/* Analysis mode toggle */}
-                      <div className="flex flex-col gap-3">
-                        <p className="text-xs text-fg-4 uppercase tracking-wide font-medium">Analysis Type</p>
-                        <div className="flex gap-2 bg-card rounded-xl p-1 w-fit">
-                          {[
-                            { key: 'two-schedule',   label: 'Two-Schedule Bow Wave' },
-                            { key: 'multi-schedule', label: 'Multi-Schedule Trend'  },
-                          ].map(opt => (
-                            <button
-                              key={opt.key}
-                              onClick={() => setAnalysisMode(opt.key)}
-                              className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors
-                                ${analysisMode === opt.key
-                                  ? 'bg-accent text-fg'
-                                  : 'text-fg-3 hover:text-fg'}`}
-                            >
-                              {opt.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
+                      {/* Two-column analysis settings */}
+                      <div className="grid grid-cols-2 gap-4">
 
-                      {/* Two-schedule: pair picker */}
-                      {analysisMode === 'two-schedule' && (
-                        <div className="flex flex-col gap-3">
-                          <p className="text-xs text-fg-4 uppercase tracking-wide font-medium">Select Schedule Pair</p>
-                          <div className="flex items-center gap-4 flex-wrap">
-                            <div className="flex flex-col gap-1">
-                              <label className="text-xs text-fg-3">Earlier Schedule</label>
-                              <select
-                                value={selectedPair[0] || ''}
-                                onChange={e => setSelectedPair(prev => [e.target.value || null, prev[1]])}
-                                className="bg-card border border-line rounded-lg px-3 py-2 text-fg text-sm
-                                  focus:outline-none focus:border-accent transition-colors min-w-52"
-                              >
-                                <option value="">— Select schedule —</option>
-                                {uploadedSchedules.map(s => (
-                                  <option key={s.id} value={s.id}>{s.fileName} ({formatDate(s.dataDate)})</option>
-                                ))}
-                              </select>
-                            </div>
-                            <span className="text-gray-600 text-xl mt-4">→</span>
-                            <div className="flex flex-col gap-1">
-                              <label className="text-xs text-fg-3">Later Schedule</label>
-                              <select
-                                value={selectedPair[1] || ''}
-                                onChange={e => setSelectedPair(prev => [prev[0], e.target.value || null])}
-                                className="bg-card border border-line rounded-lg px-3 py-2 text-fg text-sm
-                                  focus:outline-none focus:border-accent transition-colors min-w-52"
-                              >
-                                <option value="">— Select schedule —</option>
-                                {uploadedSchedules.map(s => (
-                                  <option key={s.id} value={s.id}>{s.fileName} ({formatDate(s.dataDate)})</option>
-                                ))}
-                              </select>
-                            </div>
+                        {/* Bow Wave Analysis */}
+                        <div className="bg-bg rounded-xl p-4 flex flex-col gap-3">
+                          <div>
+                            <p className="text-sm font-semibold text-fg-2">Bow Wave Analysis</p>
+                            <p className="text-xs text-fg-4 mt-0.5">Compare two snapshots to measure scope growth.</p>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <label className="text-xs text-fg-3">Earlier Schedule</label>
+                            <select
+                              value={selectedPair[0] || ''}
+                              onChange={e => setSelectedPair(prev => [e.target.value || null, prev[1]])}
+                              className="bg-card border border-line rounded-lg px-3 py-2 text-fg text-sm
+                                focus:outline-none focus:border-accent transition-colors w-full"
+                            >
+                              <option value="">— Select schedule —</option>
+                              {uploadedSchedules.map(s => (
+                                <option key={s.id} value={s.id}>{s.fileName} ({formatDate(s.dataDate)})</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <label className="text-xs text-fg-3">Later Schedule</label>
+                            <select
+                              value={selectedPair[1] || ''}
+                              onChange={e => setSelectedPair(prev => [prev[0], e.target.value || null])}
+                              className="bg-card border border-line rounded-lg px-3 py-2 text-fg text-sm
+                                focus:outline-none focus:border-accent transition-colors w-full"
+                            >
+                              <option value="">— Select schedule —</option>
+                              {uploadedSchedules.map(s => (
+                                <option key={s.id} value={s.id}>{s.fileName} ({formatDate(s.dataDate)})</option>
+                              ))}
+                            </select>
                           </div>
                           {selectedPair[0] && selectedPair[1] && selectedPair[0] === selectedPair[1] && (
                             <p className="text-red-400 text-xs">Please select two different schedules.</p>
                           )}
-                          <button
-                            onClick={runTwoScheduleAnalysis}
-                            disabled={!selectedPair[0] || !selectedPair[1] || selectedPair[0] === selectedPair[1]}
-                            className="w-fit bg-accent hover:bg-blue-500 text-fg font-semibold
-                              px-6 py-2.5 rounded-xl text-sm transition-colors
-                              disabled:opacity-40 disabled:cursor-not-allowed"
-                          >
-                            Run Two-Schedule Analysis
-                          </button>
                         </div>
-                      )}
 
-                      {/* Multi-schedule: baseline picker + run */}
-                      {analysisMode === 'multi-schedule' && (
-                        <div className="flex flex-col gap-3">
-                          <p className="text-xs text-fg-4 uppercase tracking-wide font-medium">Baseline Schedule (Optional)</p>
-                          <p className="text-fg-3 text-xs">
-                            Select a schedule to use as the baseline reference. It will be highlighted on the trend chart.
-                          </p>
-                          <select
-                            value={baselineId || ''}
-                            onChange={e => setBaselineId(e.target.value || null)}
-                            className="bg-card border border-line rounded-lg px-3 py-2 text-fg text-sm
-                              focus:outline-none focus:border-accent transition-colors w-fit min-w-64"
-                          >
-                            <option value="">No baseline</option>
-                            {uploadedSchedules.map(s => (
-                              <option key={s.id} value={s.id}>{s.fileName} ({formatDate(s.dataDate)})</option>
-                            ))}
-                          </select>
-                          <button
-                            onClick={runMultiScheduleAnalysis}
-                            className="w-fit bg-accent hover:bg-blue-500 text-fg font-semibold
-                              px-6 py-2.5 rounded-xl text-sm transition-colors"
-                          >
-                            View Multi-Schedule Trend
-                          </button>
+                        {/* Multi-Schedule Trend */}
+                        <div className="bg-bg rounded-xl p-4 flex flex-col gap-3">
+                          <div>
+                            <p className="text-sm font-semibold text-fg-2">Multi-Schedule Trend</p>
+                            <p className="text-xs text-fg-4 mt-0.5">Analyse all schedules together to reveal scope and progress trends.</p>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <label className="text-xs text-fg-3">Baseline Schedule <span className="text-fg-4">(optional)</span></label>
+                            <select
+                              value={baselineId || ''}
+                              onChange={e => setBaselineId(e.target.value || null)}
+                              className="bg-card border border-line rounded-lg px-3 py-2 text-fg text-sm
+                                focus:outline-none focus:border-accent transition-colors w-full"
+                            >
+                              <option value="">No baseline</option>
+                              {uploadedSchedules.map(s => (
+                                <option key={s.id} value={s.id}>{s.fileName} ({formatDate(s.dataDate)})</option>
+                              ))}
+                            </select>
+                          </div>
                         </div>
-                      )}
+                      </div>
+
+                      {/* Single run button */}
+                      <button
+                        onClick={runAllAnalyses}
+                        disabled={!hasSchedules}
+                        className="w-fit bg-accent hover:bg-blue-500 text-fg font-semibold
+                          px-6 py-2.5 rounded-xl text-sm transition-colors
+                          disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        Run Analysis
+                      </button>
                     </div>
                   )}
                 </>
@@ -973,6 +971,8 @@ export default function App() {
                   projectName={projectName}
                   projectNumber={projectNumber}
                   scenarioConfig={scenarioConfig}
+                  categoryOverrides={bowWaveCategoryOverrides}
+                  onCategoryOverridesChange={setBowWaveCategoryOverrides}
                 />
               </div>
             </div>
@@ -1019,9 +1019,21 @@ export default function App() {
                 onZoomChange={(s, e) => setMultiChartZoom({ start: s, end: e })}
                 projectName={projectName}
                 projectNumber={projectNumber}
+                groupByColumn={multiGroupByColumn}
+                onGroupByChange={setMultiGroupByColumn}
+                groupByColumns={availableFilterColumns}
+                seriesOverrides={multiSeriesOverrides}
+                onSeriesOverridesChange={setMultiSeriesOverrides}
               />
 
-              <BowWaveMagnitudeChart magnitudeData={bowWaveMagnitudeData} unit={unit} />
+              <BowWaveMagnitudeChart
+                magnitudeData={bowWaveMagnitudeData}
+                unit={unit}
+                projectName={projectName}
+                projectNumber={projectNumber}
+                scheduleOverrides={magnitudeScheduleOverrides}
+                onScheduleOverridesChange={setMagnitudeScheduleOverrides}
+              />
 
               <SCurveChart
                 sCurveData={sCurveData}
@@ -1031,14 +1043,12 @@ export default function App() {
                 onZoomChange={(s, e) => setSCurveZoom({ start: s, end: e })}
                 projectName={projectName}
                 projectNumber={projectNumber}
+                seriesOverrides={sCurveSeriesOverrides}
+                onSeriesOverridesChange={setSCurveSeriesOverrides}
               />
             </div>
           )}
 
-          {/* ── Configure Tab ── */}
-          {activeTab === 'Configure' && (
-            <ConfigureTab />
-          )}
 
           {/* ── Schedule Data Tab ── */}
           {activeTab === 'Schedule Data' && hasAnalysis && (

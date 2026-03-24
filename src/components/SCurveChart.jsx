@@ -33,7 +33,18 @@ const CustomTooltip = ({ active, payload, label, unit }) => {
   )
 }
 
-export default function SCurveChart({ sCurveData, unit, zoomStart, zoomEnd, onZoomChange, projectName, projectNumber }) {
+const DownloadIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+    <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+  </svg>
+)
+
+export default function SCurveChart({
+  sCurveData, unit,
+  zoomStart, zoomEnd, onZoomChange,
+  projectName, projectNumber,
+  seriesOverrides, onSeriesOverridesChange,
+}) {
   const exportRef = useRef(null)
   const cc = useChartColors()
   const { monthLabels = [], series = [] } = sCurveData || {}
@@ -42,30 +53,45 @@ export default function SCurveChart({ sCurveData, unit, zoomStart, zoomEnd, onZo
 
   const startIdx = zoomStart
   const endIdx   = zoomEnd < 0 ? monthLabels.length - 1 : Math.min(zoomEnd, monthLabels.length - 1)
+  const toVal    = (v) => unit === 'hrs' ? v : v / 8
 
-  const toVal = (v) => unit === 'hrs' ? v : v / 8
+  // ── Per-series overrides ──────────────────────────────────────────────────
+  const getOv = (id) => seriesOverrides[id] || {}
+  const setOv = (id, key, val) =>
+    onSeriesOverridesChange(prev => ({ ...prev, [id]: { ...(prev[id] || {}), [key]: val } }))
 
-  // Assign colors — latest = primary, others start with accentC then cycle
+  const isHidden     = (id) => getOv(id).hidden === true
+  const getOverColor = (id) => getOv(id).color || null
+  const getLabel     = (id) => getOv(id).label?.trim() || null
+
+  // ── Auto-assign colors ─────────────────────────────────────────────────────
   const EXTRA_COLORS = ['#22c55e', '#ec4899', '#14b8a6', '#eab308', '#f43f5e', '#06b6d4']
   let colorIdx = 0
-  const seriesColor = {}
+  const autoColor = {}
   series.forEach(s => {
-    if (s.isLatest) { seriesColor[s.id] = cc.accent; return }
-    seriesColor[s.id] = colorIdx === 0 ? cc.accentC : EXTRA_COLORS[(colorIdx - 1) % EXTRA_COLORS.length]
+    if (s.isLatest) { autoColor[s.id] = cc.accent; return }
+    autoColor[s.id] = colorIdx === 0 ? cc.accentC : EXTRA_COLORS[(colorIdx - 1) % EXTRA_COLORS.length]
     colorIdx++
   })
+  const effectiveColor = (id) => getOverColor(id) || autoColor[id] || cc.accent
+
+  const activeSeries = series.filter(s => !isHidden(s.id))
+
+  // ── Chart data ─────────────────────────────────────────────────────────────
   const chartData = monthLabels.slice(startIdx, endIdx + 1).map(label => {
     const row = { month: label }
-    series.forEach(s => {
+    activeSeries.forEach(s => {
       row[s.id] = toVal(s.cumByMonth[label] || 0)
     })
     return row
   })
 
+  // ── Export ─────────────────────────────────────────────────────────────────
   const handleExport = () => {
     if (!exportRef.current) return
     const meta = []
-    if (projectNumber || projectName) meta.push(`Project: ${[projectNumber, projectName].filter(Boolean).join(' — ')}`)
+    if (projectNumber || projectName)
+      meta.push(`Project: ${[projectNumber, projectName].filter(Boolean).join(' — ')}`)
     const slug = [projectNumber, projectName].filter(Boolean).join('-').replace(/\s+/g, '-') || 's-curve'
     exportChart(exportRef.current, meta, `${slug}-s-curve`)
   }
@@ -73,70 +99,74 @@ export default function SCurveChart({ sCurveData, unit, zoomStart, zoomEnd, onZo
   return (
     <div className="bg-card rounded-xl p-6 flex flex-col gap-6">
       <div ref={exportRef} className="flex flex-col gap-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h3 className="text-sm font-semibold text-fg-2">S-Curve — Cumulative Planned Work</h3>
-          <p className="text-xs text-fg-4 mt-1">
-            Cumulative planned hours per schedule. Diverging end-points indicate scope growth between updates.
-          </p>
+
+        {/* Header */}
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <h3 className="text-sm font-semibold text-fg-2">S-Curve — Cumulative Planned Work</h3>
+            <p className="text-xs text-fg-4 mt-1">
+              Cumulative planned hours per schedule. Diverging end-points indicate scope growth between updates.
+            </p>
+          </div>
+          <button
+            onClick={handleExport}
+            className="print:hidden flex items-center gap-1.5 px-3 py-1 rounded-lg bg-control hover:bg-muted
+              text-fg-3 hover:text-fg text-xs font-medium transition-colors"
+          >
+            <DownloadIcon />
+            Export PDF
+          </button>
         </div>
-        <button
-          onClick={handleExport}
-          className="print:hidden flex items-center gap-1.5 px-3 py-1 rounded-lg bg-control hover:bg-muted
-            text-fg-3 hover:text-fg text-xs font-medium transition-colors"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
-          </svg>
-          Export PDF
-        </button>
-      </div>
 
-      <ResponsiveContainer key={unit} width="100%" height={380}>
-        <ComposedChart data={chartData} margin={{ top: 10, right: 20, left: 20, bottom: 80 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke={cc.grid} />
-          <XAxis
-            dataKey="month"
-            tick={{ fill: cc.tick, fontSize: 11 }}
-            angle={-45}
-            textAnchor="end"
-            interval="preserveStartEnd"
-          />
-          <YAxis
-            tick={{ fill: cc.tick, fontSize: 11 }}
-            label={{
-              value: unit === 'hrs' ? 'Cumulative Hours' : 'Cumulative Work Days',
-              angle: -90,
-              position: 'insideLeft',
-              fill: cc.tick,
-              fontSize: 12,
-            }}
-          />
-          <Tooltip content={<CustomTooltip unit={unit} />} />
-          <Legend
-            formatter={(value) => {
-              const s = series.find(s => s.id === value)
-              return s ? shortName(s.fileName, s.dataDate) : value
-            }}
-            wrapperStyle={{ paddingTop: '20px', color: cc.tick, fontSize: '11px' }}
-          />
-
-          {series.map(s => (
-            <Line
-              key={s.id}
-              type="monotone"
-              dataKey={s.id}
-              name={s.id}
-              stroke={seriesColor[s.id]}
-              strokeWidth={s.isLatest ? 2.5 : 1.5}
-              dot={false}
-              activeDot={{ r: 4 }}
+        <ResponsiveContainer key={unit} width="100%" height={380}>
+          <ComposedChart data={chartData} margin={{ top: 10, right: 20, left: 20, bottom: 80 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke={cc.grid} />
+            <XAxis
+              dataKey="month"
+              tick={{ fill: cc.tick, fontSize: 11 }}
+              angle={-45}
+              textAnchor="end"
+              tickMargin={12}
+              interval="preserveStartEnd"
             />
-          ))}
-        </ComposedChart>
-      </ResponsiveContainer>
+            <YAxis
+              tick={{ fill: cc.tick, fontSize: 11 }}
+              label={{
+                value: unit === 'hrs' ? 'Cumulative Hours' : 'Cumulative Work Days',
+                angle: -90,
+                position: 'insideLeft',
+                fill: cc.tick,
+                fontSize: 12,
+              }}
+            />
+            <Tooltip content={<CustomTooltip unit={unit} />} />
+            <Legend
+              formatter={(value) => {
+                const s = series.find(s => s.id === value)
+                if (!s) return value
+                return getLabel(s.id) || shortName(s.fileName, s.dataDate)
+              }}
+              wrapperStyle={{ paddingTop: '20px', color: cc.tick, fontSize: '11px' }}
+            />
+
+            {activeSeries.map(s => (
+              <Line
+                key={s.id}
+                type="monotone"
+                dataKey={s.id}
+                name={s.id}
+                stroke={effectiveColor(s.id)}
+                strokeWidth={s.isLatest ? 2.5 : 1.5}
+                dot={false}
+                activeDot={{ r: 4 }}
+              />
+            ))}
+          </ComposedChart>
+        </ResponsiveContainer>
+
       </div>{/* end exportRef */}
 
+      {/* Zoom */}
       <div className="flex flex-col gap-3 border-t border-line-subtle pt-4">
         <p className="text-xs text-fg-3 font-medium uppercase tracking-wide">Zoom</p>
         <DualRangeSlider
@@ -149,6 +179,77 @@ export default function SCurveChart({ sCurveData, unit, zoomStart, zoomEnd, onZo
           startLabel={monthLabels[startIdx]}
           endLabel={monthLabels[endIdx]}
         />
+      </div>
+
+      {/* Schedules in View */}
+      <div className="border-t border-line-subtle pt-4">
+        <p className="text-xs text-fg-4 uppercase tracking-wide font-medium mb-3">Schedules in View</p>
+        <div className="flex flex-col gap-2">
+          {[...series].reverse().map(s => {
+            const ov       = getOv(s.id)
+            const hidden   = ov.hidden === true
+            const color    = effectiveColor(s.id)
+            const inputVal = ov.label != null ? ov.label : shortName(s.fileName, s.dataDate)
+
+            return (
+              <div key={s.id}
+                className={`flex items-center gap-2 text-xs transition-opacity ${hidden ? 'opacity-40' : ''}`}
+              >
+                {/* Include / exclude */}
+                <input
+                  type="checkbox"
+                  checked={!hidden}
+                  onChange={e => setOv(s.id, 'hidden', !e.target.checked)}
+                  className="w-3.5 h-3.5 shrink-0 cursor-pointer accent-accent"
+                  title={hidden ? 'Include in chart' : 'Exclude from chart'}
+                />
+
+                {/* Color swatch / picker */}
+                <label className="relative shrink-0 cursor-pointer" title="Click to change color">
+                  <span className="flex w-4 h-4 rounded-sm border border-line/50"
+                    style={{ background: color }} />
+                  <input
+                    key={ov.color || color}
+                    type="color"
+                    className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                    defaultValue={ov.color || color}
+                    onBlur={e => setOv(s.id, 'color', e.target.value)}
+                  />
+                </label>
+                {ov.color && (
+                  <button
+                    onClick={() => setOv(s.id, 'color', null)}
+                    className="shrink-0 text-fg-4 hover:text-fg leading-none"
+                    title="Reset to default color"
+                  >↺</button>
+                )}
+
+                {/* Editable name */}
+                <input
+                  type="text"
+                  value={inputVal}
+                  onChange={e => setOv(s.id, 'label', e.target.value)}
+                  onBlur={e => { if (!e.target.value.trim()) setOv(s.id, 'label', null) }}
+                  className={`flex-1 min-w-0 bg-transparent border-b border-transparent
+                    hover:border-line focus:border-accent outline-none py-0.5
+                    ${s.isLatest ? 'text-fg font-medium' : 'text-fg-3'}`}
+                  placeholder={shortName(s.fileName, s.dataDate)}
+                />
+
+                {s.isLatest && (
+                  <span className="shrink-0 font-medium" style={{ color: cc.accent }}>Latest</span>
+                )}
+                <span className="shrink-0 text-fg-4">
+                  {s.dataDate
+                    ? new Date(s.dataDate).toLocaleDateString('en-US', {
+                        month: 'short', day: 'numeric', year: 'numeric',
+                      })
+                    : ''}
+                </span>
+              </div>
+            )
+          })}
+        </div>
       </div>
     </div>
   )
