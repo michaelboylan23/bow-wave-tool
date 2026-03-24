@@ -213,9 +213,11 @@ npm run electron:build
 - `electron/main.cjs` must use `.cjs` extension because `package.json` has `"type": "module"`
 - `vite.config.js` must have `base: './'` for asset paths to resolve correctly from `file://`
 - Build must be run from **Administrator PowerShell** — electron-builder needs symlink privileges for winCodeSign
+- `git pull` and `npm install` must be run from a **normal PowerShell** first — Admin context lacks Windows credential manager access so git operations fail silently
 - The portable `.exe` bundles Chromium + Node + the full React app — end users need nothing installed
 - Windows SmartScreen will show a one-time "Unknown publisher" warning — users click "More info → Run anyway"
 - `release/` is gitignored — distribute the `.exe` via SharePoint, Teams, or direct file transfer
+- After uploading the `.exe`, publish a **GitHub Release** tagged `vX.X.X` — the in-app version banner fetches `/releases/latest` from the GitHub API; no published release = banner never shows
 
 ---
 
@@ -224,12 +226,21 @@ npm run electron:build
 1. Make code changes and test via `npm run dev`
 2. Bump `"version"` in `package.json` (e.g. `"1.1.1"` → `"1.2.0"`)
 3. Commit and push changes via git
-4. Open PowerShell **as Administrator**
-5. Run `git pull`
-6. Run `npm install` — **required** to sync `package-lock.json`; electron-builder reads the version from the lockfile, not `package.json` directly
-7. Run `npm run electron:build`
+
+**In a normal (non-Admin) PowerShell:**
+
+4. `cd "C:\Users\mboylan\Documents\bow-wave-tool"`
+5. `npm install` — **required** to sync `package-lock.json`; electron-builder reads the version from the lockfile, not `package.json` directly
+
+> ⚠️ Do NOT run `git pull` from Admin PowerShell — Windows credential manager is not available in the Admin context so it fails silently. Claude Code runs directly in the project folder and pushes to GitHub, so `git pull` is not needed on the build machine as long as you're building from `C:\Users\mboylan\Documents\bow-wave-tool`.
+
+**In Administrator PowerShell:**
+
+6. `cd "C:\Users\mboylan\Documents\bow-wave-tool"`
+7. `npm run electron:build`
 8. Find `release/Bow Wave Analysis X.X.X.exe`
-9. Upload to SharePoint shared folder or send directly to team
+9. Upload to SharePoint: https://mbpce-my.sharepoint.com/:f:/p/mboylan/IgCjJUyOOHxzSbDWDH-mY3nLAdF9CCZuatDbBpbvKkFI3RM?e=2sSdW4
+10. Publish a **GitHub Release** tagged `vX.X.X` — this is what triggers the in-app update banner for existing users. Without a published release the banner never fires.
 
 ---
 
