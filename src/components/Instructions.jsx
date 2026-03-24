@@ -133,15 +133,14 @@ export default function Instructions() {
           </p>
         </Step>
 
-        <Step number="6" title="Run an Analysis">
+        <Step number="6" title="Configure and Run Analysis">
           <p className="text-fg-2 text-sm leading-relaxed">
-            Back on the <span className="text-fg font-medium">Analysis</span> tab you'll see your loaded schedules.
-            Choose the type of analysis to run:
+            Back on the <span className="text-fg font-medium">Analysis</span> tab you'll see two settings panels side by side:
           </p>
           <ul className="flex flex-col gap-1.5 mt-1">
             {[
-              ['Two-Schedule Bow Wave', 'Select a Schedule 1 (earlier) and Schedule 2 (later) from the dropdowns, then click Run Bow Wave Analysis. The tool auto-detects which is earlier based on Data Date.'],
-              ['Multi-Schedule Trend', 'Click Run Multi-Schedule Trend to analyse all loaded schedules together and plot how in-flight work and cumulative progress change over time.'],
+              ['Bow Wave Analysis', 'Select a Schedule 1 (earlier) and a Schedule 2 (later) from the dropdowns. The tool auto-detects which is earlier based on Data Date.'],
+              ['Multi-Schedule Trend', 'Optionally select a baseline schedule to highlight as the reference on the trend charts. All loaded schedules are included automatically.'],
             ].map(([label, desc]) => (
               <li key={label} className="flex gap-2 text-sm">
                 <span className="text-blue-400 mt-0.5 shrink-0">→</span>
@@ -149,9 +148,10 @@ export default function Instructions() {
               </li>
             ))}
           </ul>
-          <Note>
-            You can run both analyses in the same session — results appear in separate tabs and coexist independently.
-          </Note>
+          <p className="text-fg-2 text-sm leading-relaxed">
+            Click <span className="text-fg font-medium">Run Analysis</span> to run both analyses at once.
+            Results appear in separate tabs and coexist independently.
+          </p>
         </Step>
 
         <Step number="7" title="Review Results">

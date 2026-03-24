@@ -1,6 +1,6 @@
 # Bow Wave Analysis Tool — Architecture & Progress
 
-**Last Updated:** March 2026 (session 4)
+**Last Updated:** March 2026 (session 5)
 **Current Phase:** Phase 1 — POC / Portable Desktop App
 
 ---
@@ -70,14 +70,16 @@ A browser-based tool that accepts multiple Primavera P6 schedule exports (CSV, E
 | Project Name + Number (required before analysis) | ✅ Complete |
 | Inline click-to-edit project name/number in header | ✅ Complete |
 | Persistent header with logo, Save, New Project | ✅ Complete |
-| Instructions / Analysis / Results / Schedule Data / Example tabs | ✅ Complete |
+| Instructions / Analysis / Results / Schedule Data tabs | ✅ Complete |
 | Loading spinner during file parsing | ✅ Complete |
 | Schedule summary bar (file names + data dates) | ✅ Complete |
 | Edit Data Dates modal (with validation + Reanalyze) | ✅ Complete |
 | Swap Schedules (inside Edit Data Dates modal) | ✅ Complete |
 | Overwrite warning when re-analyzing | ✅ Complete |
 | New Project confirmation dialog | ✅ Complete |
-| Example Project tab with in-memory fake data | ✅ Complete |
+| Example Project — inline card in Analysis tab (below Load Existing Project) | ✅ Complete |
+| Combined Run Analysis button — runs Bow Wave + Multi-Schedule Trend simultaneously | ✅ Complete |
+| Two-column analysis settings panel (Bow Wave left, Multi-Schedule Trend right) | ✅ Complete |
 | **Save/Load — POC:** Export session as local `.bwt` JSON file | ✅ Complete |
 | **Save/Load — POC:** Import `.bwt` JSON file to restore session | ✅ Complete |
 | Schedule Data tab (filterable/sortable/virtualized activity table) | ✅ Complete |
@@ -97,10 +99,14 @@ A browser-based tool that accepts multiple Primavera P6 schedule exports (CSV, E
 | Export PDF — print dialog, landscape, logo + metadata header, no zoom bar | ✅ Complete |
 | Export PDF — theme-aware colors (reads CSS vars at call time) | ✅ Complete |
 | Export PDF — KPI cards included below chart | ✅ Complete |
-| Light/dark mode toggle (header button, persists to localStorage) | ✅ Complete |
-| Configure tab — Primary/Accent/Secondary Accent color pickers | ✅ Complete |
-| Configure tab — font size (S/M/L) and font family selector | ✅ Complete |
-| Configure tab — Reset to Defaults | ✅ Complete |
+| Light/dark mode toggle (inside Settings panel, persists to localStorage) | ✅ Complete |
+| Settings gear icon in header — opens slide-in panel replacing old Configure tab | ✅ Complete |
+| Settings panel — Primary/Accent/Secondary Accent color pickers | ✅ Complete |
+| Settings panel — font size (S/M/L) and font family selector | ✅ Complete |
+| Settings panel — Reset to Defaults | ✅ Complete |
+| Per-series overrides on all charts — show/hide, rename, color picker | ✅ Complete |
+| Color pickers commit on blur (not per-drag) to avoid chart re-render lag | ✅ Complete |
+| Bow Wave reference line color follows Bow Wave series color override | ✅ Complete |
 | Logo switches by theme (`logo.png` dark, `logo_navy.png` light) | ✅ Complete |
 | 3-color system wired through all charts and KPI cards | ✅ Complete |
 | Thicker data date reference lines on all charts | ✅ Complete |
@@ -131,12 +137,12 @@ bow-wave-tool/
 │   │   ├── BowWaveChart.jsx          ✅ Recharts stacked bar chart; Group By split; renders KpiCards inside exportRef
 │   │   ├── BowWaveMagnitudeChart.jsx ✅ Line chart — in-flight work trend across N schedules
 │   │   ├── ColumnMapper.jsx          ✅ Single-file column mapping UI (kept for reference)
-│   │   ├── ConfigureTab.jsx          ✅ Theme toggle, 3 color pickers, font size/family, Reset to Defaults
+│   │   ├── ConfigureTab.jsx          ✅ Settings panel content — theme, 3 color pickers, font size/family, Reset to Defaults
 │   │   ├── DualColumnMapper.jsx      ✅ Both schedules side by side, one confirm button
 │   │   ├── DualRangeSlider.jsx       ✅ Two-thumb range slider; track/thumbs follow Primary Color
 │   │   ├── FileUpload.jsx            ✅ Drag & drop N-file upload; shared column mapping; no filter step
 │   │   ├── FilterBar.jsx             ✅ Add/remove filter columns; multi-select; applies to all schedules
-│   │   ├── Header.jsx                ✅ Logo (theme-aware), project info, Save/New Project, theme toggle, Report a Bug
+│   │   ├── Header.jsx                ✅ Logo (theme-aware), project info, Save/New Project, gear icon (opens Settings panel), Report a Bug
 │   │   ├── Instructions.jsx          ✅ Full step-by-step instructions page
 │   │   ├── KpiCards.jsx              ✅ Planned/Actual/Delta cards; renders as fragment; colors follow accent system
 │   │   ├── MultiScheduleChart.jsx    ✅ Trend charts container; latest=Primary, previous=SecondaryAccent cycling
@@ -163,7 +169,8 @@ bow-wave-tool/
 │   │   ├── bowWaveCalc.js       ✅ Core bow wave calculation
 │   │   ├── buildChartData.js    ✅ Monthly chart data + redistribution scenarios + category grouping
 │   │   │                           Exports: buildChartData, buildBowWaveMagnitudeData,
-│   │   │                                    buildSCurveData, buildChartDataByCategory
+│   │   │                                    buildSCurveData, buildChartDataByCategory,
+│   │   │                                    buildMultiSeriesData (optional groupByColumn for per-category breakdown)
 │   │   ├── columnMapping.js     ✅ Auto-match logic + aliases + required fields
 │   │   ├── exportChart.js       ✅ Print-to-PDF via window.print(); reads CSS vars at call time for theme-aware colors; logo from DOM img (theme-aware automatically)
 │   │   └── trackUsage.js        ✅ Appends ISO timestamp to GitHub Gist on app open
@@ -275,10 +282,12 @@ onSchedulesReady(uploadedSchedules, filterConfig=[])
         ↓
 Analysis Tab
   - Reorder schedules (▲/▼) or delete (✕)
-  - Two-Schedule Bow Wave: pick Schedule 1 + 2, run calcBowWave
-    → "Two-Schedule Bow Wave" tab appears
-  - Multi-Schedule Trend: run across all schedules
-    → "Multi-Schedule Trend" tab appears
+  - Two-column settings panel:
+      Left  — Bow Wave Analysis: pick Schedule 1 + 2
+      Right — Multi-Schedule Trend: optional baseline schedule
+  - Click "Run Analysis" → runs both simultaneously
+    → "Two-Schedule Bow Wave" tab appears (if valid pair selected)
+    → "Multi-Schedule Trend" tab appears (always, using all schedules)
         ↓
 Results Tabs (FilterBar inline — add/remove columns, apply to all schedules)
   Two-Schedule Bow Wave:
