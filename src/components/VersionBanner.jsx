@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 
 const REPO         = 'michaelboylan23/bow-wave-tool'
-const DOWNLOAD_URL = 'https://mbpce-my.sharepoint.com/:f:/p/mboylan/IgCjJUyOOHxzSbDWDH-mY3nLAdF9CCZuatDbBpbvKkFI3RM?e=bpF6Pu'
+const DOWNLOAD_URL = 'https://mbpce-my.sharepoint.com/:f:/p/mboylan/IgCjJUyOOHxzSbDWDH-mY3nLAdF9CCZuatDbBpbvKkFI3RM?e=2sSdW4'
 
 function parseVersion(v) {
   return v.replace(/^v/, '').split('.').map(Number)
