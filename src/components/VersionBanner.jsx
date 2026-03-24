@@ -32,7 +32,6 @@ export default function VersionBanner() {
         const tag = data.tag_name
         if (!tag) { setStatus('error'); return }
         setLatestVersion(tag.replace(/^v/, ''))
-        setDownloadUrl(DOWNLOAD_URL)
         if (isNewer(tag, appVersion)) {
           setStatus('outdated')
         } else {
