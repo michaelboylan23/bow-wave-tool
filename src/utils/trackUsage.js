@@ -7,7 +7,8 @@ export async function trackOpen() {
   try {
     const username = window.electronAPI?.username ?? 'unknown'
     const timestamp = new Date().toISOString()
-    const entry = `${timestamp} | ${username}`
+    const version = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'unknown'
+    const entry = `${timestamp} | ${username} | v${version}`
 
     const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
       headers: { Authorization: `Bearer ${TOKEN}` },
