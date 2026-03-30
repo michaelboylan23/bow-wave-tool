@@ -3,9 +3,9 @@ const GIST_ID = import.meta.env.VITE_USAGE_GIST_ID
 const FILE    = 'usage-log.txt'
 
 export async function trackOpen() {
-  if (!TOKEN || !GIST_ID || !window.electronAPI) return
+  if (!TOKEN || !GIST_ID) return
   try {
-    const username = window.electronAPI.username ?? 'unknown'
+    const username = window.electronAPI?.username ?? 'unknown'
     const timestamp = new Date().toISOString()
     const entry = `${timestamp} | ${username}`
 
