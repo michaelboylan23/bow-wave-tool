@@ -31,6 +31,9 @@
       "electron/main.cjs",
       "electron/preload.cjs"
     ],
+    "asarUnpack": [
+      "electron/preload.cjs"
+    ],
     "win": {
       "target": "portable",
       "icon": "public/app_icon.ico",

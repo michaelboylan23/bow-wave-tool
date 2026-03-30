@@ -12,7 +12,9 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(__dirname, 'preload.cjs'),
+      preload: app.isPackaged
+        ? path.join(__dirname, 'preload.cjs').replace('app.asar', 'app.asar.unpacked')
+        : path.join(__dirname, 'preload.cjs'),
     },
   })
 
