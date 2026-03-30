@@ -3,9 +3,11 @@ const GIST_ID = import.meta.env.VITE_USAGE_GIST_ID
 const FILE    = 'usage-log.txt'
 
 export async function trackOpen() {
-  if (!TOKEN || !GIST_ID) return
+  if (!TOKEN || !GIST_ID || !window.electronAPI) return
   try {
+    const username = window.electronAPI.username ?? 'unknown'
     const timestamp = new Date().toISOString()
+    const entry = `${timestamp} | ${username}`
 
     const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
       headers: { Authorization: `Bearer ${TOKEN}` },
@@ -20,7 +22,7 @@ export async function trackOpen() {
         Authorization: `Bearer ${TOKEN}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ files: { [FILE]: { content: current + timestamp + '\n' } } }),
+      body: JSON.stringify({ files: { [FILE]: { content: current + entry + '\n' } } }),
     })
   } catch {
     // Fail silently — never surface tracking errors to users
