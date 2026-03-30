@@ -45,14 +45,18 @@ function MultiSelectDropdown({ column, allValues, selected, onChange }) {
     return () => document.removeEventListener('mousedown', handler)
   }, [open])
 
-  // Close on scroll or resize
+  // Close on outside scroll or resize (but not scrolling inside the dropdown)
   useEffect(() => {
     if (!open) return
     const close = () => setOpen(false)
-    window.addEventListener('scroll', close, true)
+    const onScroll = (e) => {
+      if (dropdownRef.current && dropdownRef.current.contains(e.target)) return
+      setOpen(false)
+    }
+    window.addEventListener('scroll', onScroll, true)
     window.addEventListener('resize', close)
     return () => {
-      window.removeEventListener('scroll', close, true)
+      window.removeEventListener('scroll', onScroll, true)
       window.removeEventListener('resize', close)
     }
   }, [open])

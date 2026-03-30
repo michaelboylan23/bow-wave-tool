@@ -218,9 +218,8 @@ npm run electron:build
 ## 6. Electron Notes
 
 - `electron/main.cjs` must use `.cjs` extension because `package.json` has `"type": "module"`
+- `electron/preload.cjs` — exposes `os.userInfo().username` to the renderer via `window.electronAPI.username` (used for usage tracking)
 - `vite.config.js` must have `base: './'` for asset paths to resolve correctly from `file://`
-- Build must be run from **Administrator PowerShell** — electron-builder needs symlink privileges for winCodeSign
-- `git pull` and `npm install` must be run from a **normal PowerShell** first — Admin context lacks Windows credential manager access so git operations fail silently
 - The portable `.exe` bundles Chromium + Node + the full React app — end users need nothing installed
 - Windows SmartScreen will show a one-time "Unknown publisher" warning — users click "More info → Run anyway"
 - `release/` is gitignored — distribute the `.exe` via SharePoint, Teams, or direct file transfer
@@ -228,26 +227,48 @@ npm run electron:build
 
 ---
 
-## 7. Distribution Workflow
+## 7. Distribution Workflow (CI — GitHub Actions)
+
+The portable `.exe` is built automatically by GitHub Actions on a `windows-latest` runner when a version tag is pushed. This removes the need for Admin PowerShell locally.
+
+**Workflow file:** `.github/workflows/build.yml`
+
+**Required GitHub Actions secrets** (Settings → Secrets and variables → Actions):
+
+| Secret | Purpose |
+|---|---|
+| `VITE_GITHUB_TOKEN` | PAT with `gist` + `repo` scopes — usage tracking + bug reports |
+| `VITE_USAGE_GIST_ID` | Gist ID for the usage log |
+| `VITE_GITHUB_REPO` | `michaelboylan23/bow-wave-tool` |
+
+### Release steps
 
 1. Make code changes and test via `npm run dev`
-2. Bump `"version"` in `package.json` (e.g. `"1.1.1"` → `"1.2.0"`)
-3. Commit and push changes via git
+2. Bump `"version"` in `package.json` (e.g. `"1.2.0"` → `"1.2.1"`)
+3. Commit and push:
+   ```
+   git add -A
+   git commit -m "v1.2.1 — description of changes"
+   git push
+   ```
+4. Create and push a version tag:
+   ```
+   git tag v1.2.1
+   git push origin v1.2.1
+   ```
+5. GitHub Actions builds the `.exe` and attaches it to the GitHub Release automatically
+6. Download the `.exe` from the GitHub Release page and upload to SharePoint: https://mbpce-my.sharepoint.com/:f:/p/mboylan/IgCjJUyOOHxzSbDWDH-mY3nLAdF9CCZuatDbBpbvKkFI3RM?e=2sSdW4
 
-**In a normal (non-Admin) PowerShell:**
+> **Note:** The in-app version banner fires off the GitHub Release created by the workflow. If you need to re-run a build for the same version, force-update the tag: `git tag -f v1.2.1 && git push origin v1.2.1 --force`
 
-4. `cd "C:\Users\mboylan\Documents\bow-wave-tool"`
-5. `npm install` — **required** to sync `package-lock.json`; electron-builder reads the version from the lockfile, not `package.json` directly
+### Legacy local build (requires Admin PowerShell)
 
-> ⚠️ Do NOT run `git pull` from Admin PowerShell — Windows credential manager is not available in the Admin context so it fails silently. Claude Code runs directly in the project folder and pushes to GitHub, so `git pull` is not needed on the build machine as long as you're building from `C:\Users\mboylan\Documents\bow-wave-tool`.
+If CI is unavailable, you can still build locally — electron-builder needs symlink privileges:
 
-**In Administrator PowerShell:**
+1. Normal PowerShell: `npm install` (syncs `package-lock.json`)
+2. Admin PowerShell: `npm run electron:build` → `release/Bow Wave Analysis X.X.X.exe`
 
-6. `cd "C:\Users\mboylan\Documents\bow-wave-tool"`
-7. `npm run electron:build`
-8. Find `release/Bow Wave Analysis X.X.X.exe`
-9. Upload to SharePoint: https://mbpce-my.sharepoint.com/:f:/p/mboylan/IgCjJUyOOHxzSbDWDH-mY3nLAdF9CCZuatDbBpbvKkFI3RM?e=2sSdW4
-10. Publish a **GitHub Release** tagged `vX.X.X` — this is what triggers the in-app update banner for existing users. Without a published release the banner never fires.
+> ⚠️ Do NOT run `git pull` from Admin PowerShell — credential manager is unavailable in that context.
 
 ---
 

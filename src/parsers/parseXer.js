@@ -94,10 +94,17 @@ export function parseXer(file, mapping) {
           taskActvMap[row.task_id][typeName] = codeVal
         }
 
-        // Join activity codes onto task rows
+        // Build WBS lookup: wbs_id → wbs_name
+        const wbsMap = {}
+        for (const row of (tables['PROJWBS'] || [])) {
+          if (row.wbs_id) wbsMap[row.wbs_id] = { name: row.wbs_name || null, short: row.wbs_short_name || null }
+        }
+
+        // Join activity codes and WBS name onto task rows
         const taskRowsWithCodes = taskRows.map(row => ({
           ...row,
           ...(taskActvMap[row.task_id] || {}),
+          ...(row.wbs_id && wbsMap[row.wbs_id] ? { wbs_name: wbsMap[row.wbs_id].name, wbs_short_name: wbsMap[row.wbs_id].short } : {}),
         }))
 
         // Normalize durations to match Excel export (divide raw hours by day_hr_cnt)
