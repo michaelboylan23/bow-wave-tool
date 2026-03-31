@@ -1,0 +1,27 @@
+trigger:
+  tags:
+    include:
+      - v*
+
+pool:
+  vmImage: windows-latest
+
+steps:
+  - task: NodeTool@0
+    inputs:
+      versionSpec: 22.x
+    displayName: Install Node.js
+
+  - script: npm ci
+    displayName: Install dependencies
+
+  - script: npm run electron:build
+    displayName: Build portable EXE
+    env:
+      VITE_GITHUB_TOKEN: $(VITE_GITHUB_TOKEN)
+      VITE_USAGE_GIST_ID: $(VITE_USAGE_GIST_ID)
+      VITE_GITHUB_REPO: $(VITE_GITHUB_REPO)
+
+  - publish: release
+    artifact: bow-wave-portable
+    displayName: Publish portable EXE
