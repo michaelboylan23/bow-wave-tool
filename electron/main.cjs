@@ -7,14 +7,15 @@ function createWindow() {
     height: 900,
     minWidth: 900,
     minHeight: 600,
-    icon: path.join(__dirname, '../public/app_icon.ico'),
+    icon: app.isPackaged
+      ? path.join(__dirname, '../dist/app_icon.ico')
+      : path.join(__dirname, '../public/app_icon.ico'),
     title: 'Bow Wave Analysis',
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: app.isPackaged
-        ? path.join(__dirname, 'preload.cjs').replace('app.asar', 'app.asar.unpacked')
-        : path.join(__dirname, 'preload.cjs'),
+      sandbox: false,
+      preload: path.join(__dirname, 'preload.cjs'),
     },
   })
 
