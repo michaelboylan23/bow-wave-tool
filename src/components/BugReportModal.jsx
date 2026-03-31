@@ -1,7 +1,8 @@
 import { useState } from 'react'
 
-const TOKEN = import.meta.env.VITE_GITHUB_TOKEN
-const REPO  = import.meta.env.VITE_GITHUB_REPO
+const PAT     = import.meta.env.VITE_AZDO_PAT
+const ORG     = import.meta.env.VITE_AZDO_ORG
+const PROJECT = import.meta.env.VITE_AZDO_PROJECT
 
 export default function BugReportModal({ onClose }) {
   const [title,       setTitle]       = useState('')
@@ -22,14 +23,20 @@ export default function BugReportModal({ onClose }) {
     ].filter(Boolean).join('\n\n')
 
     try {
-      const res = await fetch(`https://api.github.com/repos/${REPO}/issues`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${TOKEN}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ title: title.trim(), body, labels: ['bug'] }),
-      })
+      const res = await fetch(
+        `https://dev.azure.com/${ORG}/${encodeURIComponent(PROJECT)}/_apis/wit/workitems/$Issue?api-version=7.1`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Basic ${btoa(':' + PAT)}`,
+            'Content-Type': 'application/json-patch+json',
+          },
+          body: JSON.stringify([
+            { op: 'add', path: '/fields/System.Title', value: title.trim() },
+            { op: 'add', path: '/fields/System.Description', value: body.replace(/\n/g, '<br>') },
+          ]),
+        }
+      )
       if (!res.ok) throw new Error()
       setStatus('success')
       setTimeout(onClose, 2500)
@@ -51,7 +58,7 @@ export default function BugReportModal({ onClose }) {
           <div className="flex flex-col items-center gap-3 py-4">
             <span className="text-green-400 text-3xl">✓</span>
             <p className="text-fg font-medium">Bug report submitted</p>
-            <p className="text-fg-3 text-sm text-center">Thanks — it's been logged to GitHub Issues.</p>
+            <p className="text-fg-3 text-sm text-center">Thanks — it's been logged to Azure DevOps.</p>
           </div>
         ) : (
           <>
