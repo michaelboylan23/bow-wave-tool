@@ -18,9 +18,9 @@ steps:
   - script: npm run electron:build
     displayName: Build portable EXE
     env:
-      VITE_GITHUB_TOKEN: $(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)
-      VITE_USAGE_GIST_ID: $(061b06d1f1a01e5747d17f050f5cdea3)
-      VITE_GITHUB_REPO: $(michaelboylan23/bow-wave-tool)
+      VITE_AZDO_PAT: $(VITE_AZDO_PAT)
+      VITE_AZDO_ORG: $(VITE_AZDO_ORG)
+      VITE_AZDO_PROJECT: $(VITE_AZDO_PROJECT)
 
   - publish: release
     artifact: bow-wave-portable
