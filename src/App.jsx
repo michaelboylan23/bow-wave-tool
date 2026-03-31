@@ -532,7 +532,8 @@ export default function App() {
         onReportBug={() => setBugReportOpen(true)}
         onConfigure={() => setConfigureOpen(true)}
       />
-      <VersionBanner />
+      {/* TODO: Re-enable once Azure Pipelines publishes releases */}
+      {/* <VersionBanner /> */}
       {bugReportOpen && <BugReportModal onClose={() => setBugReportOpen(false)} />}
 
       {/* ── Configure Modal ── */}
