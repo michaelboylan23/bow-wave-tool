@@ -1,5 +1,6 @@
 const { app, BrowserWindow, shell } = require('electron')
 const path = require('path')
+const os = require('os')
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -23,6 +24,14 @@ function createWindow() {
   win.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url)
     return { action: 'deny' }
+  })
+
+  // Inject username as a fallback in case preload doesn't load
+  win.webContents.on('did-finish-load', () => {
+    const username = os.userInfo().username
+    win.webContents.executeJavaScript(
+      `if (!window.electronAPI) { window.electronAPI = { username: ${JSON.stringify(username)} }; }`
+    )
   })
 
   // In production load the built index.html, in dev load Vite dev server

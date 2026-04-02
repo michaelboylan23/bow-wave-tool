@@ -6,6 +6,8 @@ const WORK_ITEM  = 3 // "Usage Tracking Log" work item
 export async function trackOpen() {
   if (!PAT || !ORG || !PROJECT) return
   try {
+    // Wait briefly for the main process fallback injection if preload didn't load
+    if (!window.electronAPI) await new Promise(r => setTimeout(r, 500))
     const username = window.electronAPI?.username ?? 'unknown'
     const timestamp = new Date().toISOString()
     const version = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'unknown'
