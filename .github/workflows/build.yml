@@ -23,9 +23,9 @@ jobs:
 
       - run: npm run electron:build
         env:
-          VITE_GITHUB_TOKEN: ${{ secrets.VITE_GITHUB_TOKEN }}
-          VITE_USAGE_GIST_ID: ${{ secrets.VITE_USAGE_GIST_ID }}
-          VITE_GITHUB_REPO: ${{ secrets.VITE_GITHUB_REPO }}
+          VITE_AZDO_PAT: ${{ secrets.VITE_AZDO_PAT }}
+          VITE_AZDO_ORG: ${{ secrets.VITE_AZDO_ORG }}
+          VITE_AZDO_PROJECT: ${{ secrets.VITE_AZDO_PROJECT }}
 
       - name: Upload portable EXE
         uses: actions/upload-artifact@v4
