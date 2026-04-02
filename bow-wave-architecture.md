@@ -110,6 +110,16 @@ A browser-based tool that accepts multiple Primavera P6 schedule exports (CSV, E
 | Logo switches by theme (`logo.png` dark, `logo_navy.png` light) | ✅ Complete |
 | 3-color system wired through all charts and KPI cards | ✅ Complete |
 | Thicker data date reference lines on all charts | ✅ Complete |
+| Activity count view modes — Finishing/Starting (bow wave + multi-schedule charts) | ✅ Complete |
+| KPI cards adapt to activity count modes (activities in window, on track, slipped) | ✅ Complete |
+| XLSX export — all unit modes on separate sheets + Info sheet with filters/grouping | ✅ Complete |
+| Print Preview modal — full-screen landscape preview with Print button | ✅ Complete |
+| XER parser — joins wbs_name and wbs_short_name from PROJWBS table | ✅ Complete |
+| Usage tracking — Windows username + app version via Azure DevOps Work Item comments | ✅ Complete |
+| Bug reports — Azure DevOps Work Items (Issue type) | ✅ Complete |
+| GitHub Actions CI build — portable .exe on v* tag push | ✅ Complete |
+| Azure Pipelines CI — config ready, blocked on parallelism grant | 🟡 Pending |
+| Version banner — disabled, awaiting Azure Pipelines release support | 🟡 Pending |
 | Browser-based session persistence (survive page refresh) | 🔴 Not Started (deprioritized) |
 | **Save/Load — Production:** Save session JSON to SharePoint library via MS Graph | 🔴 Not Started |
 | **Save/Load — Production:** Browse & load project files from SharePoint library | 🔴 Not Started |
@@ -173,6 +183,7 @@ bow-wave-tool/
 │   │   │                                    buildMultiSeriesData (optional groupByColumn for per-category breakdown)
 │   │   ├── columnMapping.js     ✅ Auto-match logic + aliases + required fields
 │   │   ├── exportChart.js       ✅ Print-to-PDF via window.print(); reads CSS vars at call time for theme-aware colors; logo from DOM img (theme-aware automatically)
+│   │   ├── exportXlsx.js        ✅ XLSX export with Hours/Days/Finishing/Starting sheets + Info sheet (metadata, filters, grouping)
 │   │   └── trackUsage.js        ✅ Appends ISO timestamp to GitHub Gist on app open
 │   ├── App.jsx                  ✅ Root layout, state, tab routing
 │   ├── main.jsx                 ✅ Wraps app in ThemeProvider
