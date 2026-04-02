@@ -945,11 +945,16 @@ export default function App() {
                       ))}
                     </div>
                     <div className="flex items-center gap-1 bg-card rounded-lg p-1">
-                      {['hrs', 'days'].map(u => (
-                        <button key={u} onClick={() => setUnit(u)}
+                      {[
+                        { key: 'hrs', label: 'Hours' },
+                        { key: 'days', label: 'Days' },
+                        { key: 'act_finish', label: 'Finishing' },
+                        { key: 'act_start', label: 'Starting' },
+                      ].map(u => (
+                        <button key={u.key} onClick={() => setUnit(u.key)}
                           className={`px-3 py-1 rounded-md text-xs font-medium transition-colors
-                            ${unit === u ? 'bg-accent text-fg' : 'text-fg-3 hover:text-fg'}`}>
-                          {u}
+                            ${unit === u.key ? 'bg-accent text-fg' : 'text-fg-3 hover:text-fg'}`}>
+                          {u.label}
                         </button>
                       ))}
                     </div>
@@ -974,6 +979,7 @@ export default function App() {
                   scenarioConfig={scenarioConfig}
                   categoryOverrides={bowWaveCategoryOverrides}
                   onCategoryOverridesChange={setBowWaveCategoryOverrides}
+                  filterConfig={filterConfig}
                 />
               </div>
             </div>
@@ -999,11 +1005,16 @@ export default function App() {
                   Multi-Schedule Trend — {uploadedSchedules.length} schedules
                 </p>
                 <div className="flex items-center gap-1 bg-card rounded-lg p-1">
-                  {['hrs', 'days'].map(u => (
-                    <button key={u} onClick={() => setUnit(u)}
+                  {[
+                    { key: 'hrs', label: 'Hours' },
+                    { key: 'days', label: 'Days' },
+                    { key: 'act_finish', label: 'Finishing' },
+                    { key: 'act_start', label: 'Starting' },
+                  ].map(u => (
+                    <button key={u.key} onClick={() => setUnit(u.key)}
                       className={`px-3 py-1 rounded-md text-xs font-medium transition-colors
-                        ${unit === u ? 'bg-accent text-fg' : 'text-fg-3 hover:text-fg'}`}>
-                      {u}
+                        ${unit === u.key ? 'bg-accent text-fg' : 'text-fg-3 hover:text-fg'}`}>
+                      {u.label}
                     </button>
                   ))}
                 </div>

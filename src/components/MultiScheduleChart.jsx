@@ -1,4 +1,4 @@
-import { useRef, useMemo } from 'react'
+import { useRef, useMemo, useState } from 'react'
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, ReferenceLine,
@@ -6,6 +6,8 @@ import {
 import { formatMonthLabel } from '../utils/buildChartData'
 import DualRangeSlider from './DualRangeSlider'
 import { exportChart } from '../utils/exportChart'
+import { exportMultiScheduleAllSheets } from '../utils/exportXlsx'
+import PrintPreviewModal from './PrintPreviewModal'
 import { useChartColors } from '../hooks/useChartColors'
 
 const CAT_COLORS = ['#3b82f6', '#22c55e', '#a855f7', '#ec4899', '#14b8a6', '#eab308', '#6366f1', '#f43f5e', '#84cc16', '#06b6d4']
@@ -14,8 +16,9 @@ const CAT_COLORS = ['#3b82f6', '#22c55e', '#a855f7', '#ec4899', '#14b8a6', '#eab
 
 const CustomTooltip = ({ active, payload, label, unit, series, seriesOverrides, groupByColumn, allCategories }) => {
   if (!active || !payload || !payload.length) return null
-  const toVal = (v) => unit === 'hrs' ? v : v / 8
-  const u = unit === 'hrs' ? 'hrs' : 'days'
+  const isCount = unit === 'act_finish' || unit === 'act_start'
+  const toVal = (v) => unit === 'hrs' ? v : unit === 'days' ? v / 8 : v
+  const u = isCount ? 'activities' : unit === 'hrs' ? 'hrs' : 'days'
   const fmt = (v) => toVal(v).toLocaleString('en-US', { maximumFractionDigits: 1 })
 
   const getDisplayLabel = (id) => {
@@ -110,6 +113,7 @@ export default function MultiScheduleChart({
   seriesOverrides, onSeriesOverridesChange,
 }) {
   const exportRef = useRef(null)
+  const [showPreview, setShowPreview] = useState(false)
   const cc = useChartColors()
 
   const { monthLabels = [], series = [], allCategories = [] } = multiSeriesData || {}
@@ -137,7 +141,8 @@ export default function MultiScheduleChart({
 
   const startIdx     = zoomStart
   const endIdx       = zoomEnd < 0 ? monthLabels.length - 1 : Math.min(zoomEnd, monthLabels.length - 1)
-  const toVal        = (v) => unit === 'hrs' ? v : v / 8
+  const isCountMode  = unit === 'act_finish' || unit === 'act_start'
+  const toVal        = (v) => unit === 'hrs' ? v : unit === 'days' ? v / 8 : v
   const activeSeries = series.filter(s => !isHidden(s.id))
 
   // ── Chart data ─────────────────────────────────────────────────────────────
@@ -147,7 +152,10 @@ export default function MultiScheduleChart({
       const row = { month: label }
       series.filter(s => !(seriesOverrides[s.id]?.hidden)).forEach(s => {
         const type = seriesOverrides[s.id]?.chartType || (s.isLatest ? 'bar' : 'line')
-        if (type === 'line' || !groupByColumn || !s.dataByCategory) {
+        if (isCountMode) {
+          const countMap = unit === 'act_finish' ? s.finishingByMonth : s.startingByMonth
+          row[s.id] = countMap?.[label] || 0
+        } else if (type === 'line' || !groupByColumn || !s.dataByCategory) {
           const hrs = s.dataByMonth[label] || 0
           row[s.id] = unit === 'hrs' ? hrs : hrs / 8
         } else {
@@ -159,7 +167,7 @@ export default function MultiScheduleChart({
       })
       return row
     })
-  }, [monthLabels, startIdx, endIdx, series, seriesOverrides, groupByColumn, allCategories, unit])
+  }, [monthLabels, startIdx, endIdx, series, seriesOverrides, groupByColumn, allCategories, unit, isCountMode])
 
   // ── Early return — after all hooks ─────────────────────────────────────────
   if (!monthLabels.length || !series.length) return null
@@ -182,6 +190,16 @@ export default function MultiScheduleChart({
     if (groupByColumn) meta.push(`Group by: ${groupByColumn}`)
     const slug = [projectNumber, projectName].filter(Boolean).join('-').replace(/\s+/g, '-') || 'multi-schedule'
     exportChart(exportRef.current, meta, `${slug}-trend`)
+  }
+
+  const handleExportXlsx = () => {
+    const meta = []
+    if (projectNumber || projectName) meta.push(`Project: ${[projectNumber, projectName].filter(Boolean).join(' — ')}`)
+    const baselineSched = (uploadedSchedules || []).find(s => s.id === baselineId)
+    meta.push(`Baseline: ${baselineSched ? baselineSched.fileName : 'None'}`)
+    if (groupByColumn) meta.push(`Group by: ${groupByColumn}`)
+    const slug = [projectNumber, projectName].filter(Boolean).join('-').replace(/\s+/g, '-') || 'multi-schedule'
+    exportMultiScheduleAllSheets(multiSeriesData, { filename: `${slug}-trend`, metaLines: meta, groupByColumn })
   }
 
   // ── Chart elements ─────────────────────────────────────────────────────────
@@ -282,7 +300,22 @@ export default function MultiScheduleChart({
                 text-fg-3 hover:text-fg text-xs font-medium transition-colors"
             >
               <DownloadIcon />
-              Export PDF
+              PDF
+            </button>
+            <button
+              onClick={handleExportXlsx}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-control hover:bg-muted
+                text-fg-3 hover:text-fg text-xs font-medium transition-colors"
+            >
+              <DownloadIcon />
+              XLSX
+            </button>
+            <button
+              onClick={() => setShowPreview(true)}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-control hover:bg-muted
+                text-fg-3 hover:text-fg text-xs font-medium transition-colors"
+            >
+              Preview
             </button>
           </div>
         </div>
@@ -324,7 +357,8 @@ export default function MultiScheduleChart({
             <YAxis
               tick={{ fill: cc.tick, fontSize: 11 }}
               label={{
-                value: unit === 'hrs' ? 'Hours' : 'Work Days',
+                value: unit === 'hrs' ? 'Hours' : unit === 'days' ? 'Work Days'
+                  : unit === 'act_finish' ? 'Activities Finishing' : 'Activities Starting',
                 angle: -90,
                 position: 'insideLeft',
                 fill: cc.tick,
@@ -464,6 +498,22 @@ export default function MultiScheduleChart({
           })}
         </div>
       </div>
+
+      {showPreview && (
+        <PrintPreviewModal
+          sourceRef={exportRef}
+          metaLines={(() => {
+            const meta = []
+            if (projectNumber || projectName) meta.push(`Project: ${[projectNumber, projectName].filter(Boolean).join(' — ')}`)
+            const baselineSched = (uploadedSchedules || []).find(s => s.id === baselineId)
+            meta.push(`Baseline: ${baselineSched ? baselineSched.fileName : 'None'}`)
+            if (groupByColumn) meta.push(`Group by: ${groupByColumn}`)
+            return meta
+          })()}
+          filename={`${[projectNumber, projectName].filter(Boolean).join('-').replace(/\s+/g, '-') || 'multi-schedule'}-trend`}
+          onClose={() => setShowPreview(false)}
+        />
+      )}
     </div>
   )
 }

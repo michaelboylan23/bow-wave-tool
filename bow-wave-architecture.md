@@ -389,6 +389,7 @@ The XER format is tab-delimited with table markers:
 | `ACTVTYPE` | Activity code type names (`actv_code_type_id` → `actv_code_type`) |
 | `ACTVCODE` | Activity code values (`actv_code_id` → `short_name`) |
 | `TASKACTV` | Links tasks to their activity code values |
+| `PROJWBS` | WBS hierarchy (`wbs_id` → `wbs_name`, `wbs_short_name`) |
 
 **Duration normalization:**
 P6 stores durations in raw hours in XER. Excel exports divide by `day_hr_cnt`. The parser reads `day_hr_cnt` from the default (or first) calendar and divides `target_drtn_hr_cnt` and `remain_drtn_hr_cnt` accordingly.
@@ -400,7 +401,8 @@ P6 stores durations in raw hours in XER. Excel exports divide by `day_hr_cnt`. T
 | Item | Status | Notes |
 |---|---|---|
 | XER validation | ✅ Complete | Validated with real project file |
-| Electron portable build | ✅ Complete | Must build from Admin PowerShell due to symlink requirement |
+| Electron portable build | ✅ Complete | Built via GitHub Actions CI (no Admin PowerShell needed) |
+| Azure DevOps migration | 🟡 In Progress | Repo pushed; pipeline blocked on free parallelism grant (submitted 2026-03-31) |
 | SharePoint library URL | 🟡 Pending | Needed for Phase 3 Graph API integration |
 | Azure subscription access | 🟡 Pending | IT may need to provision or approve |
 | Logo files | ✅ Complete | `public/logo.png` (dark mode), `public/logo_navy.png` (light mode) |

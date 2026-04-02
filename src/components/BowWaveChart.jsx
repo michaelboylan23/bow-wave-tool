@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, ReferenceLine
@@ -6,16 +6,21 @@ import {
 import { formatMonthLabel } from '../utils/buildChartData'
 import DualRangeSlider from './DualRangeSlider'
 import { exportChart } from '../utils/exportChart'
+import { exportBowWaveAllSheets } from '../utils/exportXlsx'
+import PrintPreviewModal from './PrintPreviewModal'
 import { useChartColors } from '../hooks/useChartColors'
 import KpiCards from './KpiCards'
 
 // Color palette for category bars
 const CAT_COLORS = ['#3b82f6', '#22c55e', '#a855f7', '#ec4899', '#14b8a6', '#eab308', '#6366f1', '#f43f5e', '#84cc16', '#06b6d4']
 
+const UNIT_LABELS = { hrs: 'hrs', days: 'days', act_finish: 'activities', act_start: 'activities' }
+
 const CustomTooltip = ({ active, payload, label, unit }) => {
   if (!active || !payload || !payload.length) return null
-  const toVal = (v) => unit === 'hrs' ? v : v / 8
-  const u = unit === 'hrs' ? 'hrs' : 'days'
+  const isCount = unit === 'act_finish' || unit === 'act_start'
+  const toVal = (v) => unit === 'hrs' ? v : unit === 'days' ? v / 8 : v
+  const u = UNIT_LABELS[unit] || 'hrs'
 
   // Build bw map keyed by the base cat__ key
   const bwByKey = {}
@@ -62,8 +67,10 @@ export default function BowWaveChart({
   zoomStart, zoomEnd, onZoomChange,
   projectName, projectNumber, scenarioConfig,
   categoryOverrides, onCategoryOverridesChange,
+  filterConfig,
 }) {
   const exportRef = useRef(null)
+  const [showPreview, setShowPreview] = useState(false)
   const cc = useChartColors()
 
   // ── Overrides helpers ────────────────────────────────────────────────────────
@@ -80,10 +87,24 @@ export default function BowWaveChart({
   const startIdx = zoomStart
   const endIdx   = zoomEnd < 0 ? activeData.length - 1 : Math.min(zoomEnd, activeData.length - 1)
 
-  const toVal = (v) => unit === 'hrs' ? v : v / 8
+  const isCountMode = unit === 'act_finish' || unit === 'act_start'
+  const toVal = (v) => unit === 'hrs' ? v : unit === 'days' ? v / 8 : v
   const dataLabel = formatMonthLabel(bowWaveResult.windowEnd)
 
   const visibleData = activeData.slice(startIdx, endIdx + 1).map(d => {
+    if (isCountMode) {
+      const countKey = unit === 'act_finish' ? 'finishing' : 'starting'
+      const row = { ...d, bowWave: d.bowWaveCount || 0 }
+      if (categoryChartData) {
+        for (const cat of allCategories) {
+          row[`cat__${cat}`]      = d[`cat__${cat}__${countKey}`] || 0
+          row[`cat__${cat}__bw`]  = d[`cat__${cat}__bwcount`] || 0
+        }
+      } else {
+        row.planned = d[countKey] || 0
+      }
+      return row
+    }
     const row = { ...d, bowWave: toVal(d.bowWave) }
     if (categoryChartData) {
       for (const cat of allCategories) {
@@ -113,15 +134,31 @@ export default function BowWaveChart({
     'distribute-to-recovery':'Distribute to Recovery',
   }
 
-  const handleExport = () => {
-    if (!exportRef.current) return
+  const buildMeta = () => {
     const meta = []
     if (projectNumber || projectName) meta.push(`Project: ${[projectNumber, projectName].filter(Boolean).join(' — ')}`)
     if (scenarioConfig?.scenario) meta.push(`Scenario: ${SCENARIO_LABELS[scenarioConfig.scenario] || scenarioConfig.scenario}`)
     meta.push(`Group by: ${groupByColumn || 'None'}`)
     meta.push(`Base schedule: Schedule ${baseSchedule}`)
-    const slug = [projectNumber, projectName].filter(Boolean).join('-').replace(/\s+/g, '-') || 'bow-wave'
-    exportChart(exportRef.current, meta, `${slug}-bow-wave`)
+    return meta
+  }
+
+  const buildSlug = () =>
+    [projectNumber, projectName].filter(Boolean).join('-').replace(/\s+/g, '-') || 'bow-wave'
+
+  const handleExport = () => {
+    if (!exportRef.current) return
+    exportChart(exportRef.current, buildMeta(), `${buildSlug()}-bow-wave`)
+  }
+
+  const handleExportXlsx = () => {
+    exportBowWaveAllSheets(activeData, {
+      filename: `${buildSlug()}-bow-wave`,
+      categoryChartData,
+      metaLines: buildMeta(),
+      filterConfig,
+      groupByColumn,
+    })
   }
 
   return (
@@ -156,7 +193,28 @@ export default function BowWaveChart({
             <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
             </svg>
-            Export PDF
+            PDF
+          </button>
+          <button
+            onClick={handleExportXlsx}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-control hover:bg-muted
+              text-fg-3 hover:text-fg text-xs font-medium transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+            XLSX
+          </button>
+          <button
+            onClick={() => setShowPreview(true)}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-control hover:bg-muted
+              text-fg-3 hover:text-fg text-xs font-medium transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+              <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+            </svg>
+            Preview
           </button>
         </div>
       </div>
@@ -189,7 +247,8 @@ export default function BowWaveChart({
           <YAxis
             tick={{ fill: cc.tick, fontSize: 11 }}
             label={{
-              value: unit === 'hrs' ? 'Hours' : 'Work Days',
+              value: unit === 'hrs' ? 'Hours' : unit === 'days' ? 'Work Days'
+                : unit === 'act_finish' ? 'Activities Finishing' : 'Activities Starting',
               angle: -90,
               position: 'insideLeft',
               fill: cc.tick,
@@ -376,6 +435,15 @@ export default function BowWaveChart({
           }
         </div>
       </div>
+
+      {showPreview && (
+        <PrintPreviewModal
+          sourceRef={exportRef}
+          metaLines={buildMeta()}
+          filename={`${buildSlug()}-bow-wave`}
+          onClose={() => setShowPreview(false)}
+        />
+      )}
     </div>
   )
 }

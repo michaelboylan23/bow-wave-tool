@@ -13,6 +13,24 @@ export function formatMonthLabel(date) {
   return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
 }
 
+// Count activities whose end_date falls within a given month
+function activitiesFinishingInMonth(activities, mStart, mEnd) {
+  return activities.filter(a => {
+    const end = a.end_date instanceof Date ? a.end_date : new Date(a.end_date)
+    if (!end || isNaN(end)) return false
+    return end >= mStart && end <= mEnd
+  }).length
+}
+
+// Count activities whose start_date falls within a given month
+function activitiesStartingInMonth(activities, mStart, mEnd) {
+  return activities.filter(a => {
+    const start = a.start_date instanceof Date ? a.start_date : new Date(a.start_date)
+    if (!start || isNaN(start)) return false
+    return start >= mStart && start <= mEnd
+  }).length
+}
+
 // Calculate proportional hours of an activity that fall within a given month
 function hoursInMonth(activity, mStart, mEnd) {
   const start = activity.start_date instanceof Date ? activity.start_date : new Date(activity.start_date)
@@ -108,6 +126,8 @@ export function buildMultiSeriesData(schedules, baselineId = null, groupByColumn
     })
 
     const dataByMonth = {}
+    const finishingByMonth = {}
+    const startingByMonth = {}
     for (const m of months) {
       const mStart = monthStart(m)
       const mEnd   = monthEnd(m)
@@ -115,6 +135,8 @@ export function buildMultiSeriesData(schedules, baselineId = null, groupByColumn
       dataByMonth[label] = Math.round(
         remaining.reduce((sum, act) => sum + hoursInMonth(act, mStart, mEnd), 0) * 10
       ) / 10
+      finishingByMonth[label] = activitiesFinishingInMonth(remaining, mStart, mEnd)
+      startingByMonth[label] = activitiesStartingInMonth(remaining, mStart, mEnd)
     }
 
     // Per-category remaining work — only computed when groupByColumn is provided
@@ -144,6 +166,8 @@ export function buildMultiSeriesData(schedules, baselineId = null, groupByColumn
       isLatest:      i === sorted.length - 1,
       isBaseline:    s.id === baselineId,
       dataByMonth,
+      finishingByMonth,
+      startingByMonth,
       categories,
       dataByCategory,
     }
@@ -254,20 +278,38 @@ export function buildChartDataByCategory(scheduleA, scheduleB, bowWaveResult, sc
     baseActivities.map(a => String(a[groupByColumn] ?? '')).filter(Boolean)
   )].sort()
 
-  // Build per-category hours per month
+  // Build per-category hours and counts per month
   const catByMonth = {}
+  const catFinishing = {}
+  const catStarting = {}
   for (const cat of categories) {
     catByMonth[cat] = {}
+    catFinishing[cat] = {}
+    catStarting[cat] = {}
     const catActivities = baseActivities.filter(a => String(a[groupByColumn] ?? '') === cat)
     for (const m of months) {
+      const mS = monthStart(m)
+      const mE = monthEnd(m)
       const label = formatMonthLabel(m)
       catByMonth[cat][label] = catActivities.reduce(
-        (sum, act) => sum + hoursInMonth(act, monthStart(m), monthEnd(m)), 0
+        (sum, act) => sum + hoursInMonth(act, mS, mE), 0
       )
+      catFinishing[cat][label] = activitiesFinishingInMonth(catActivities, mS, mE)
+      catStarting[cat][label] = activitiesStartingInMonth(catActivities, mS, mE)
     }
   }
 
+  // Derive slipped activity count from hours-based bow wave ratio
+  const incompleteFraction = bowWaveResult.plannedHrs > 0 ? deltaHrs / bowWaveResult.plannedHrs : 0
+  const activitiesInWindow = baseActivities.filter(a => {
+    const end = a.end_date instanceof Date ? a.end_date : new Date(a.end_date)
+    if (!end || isNaN(end)) return false
+    return end >= windowStart && end <= windowEnd
+  }).length
+  const slippedCount = Math.round(activitiesInWindow * incompleteFraction * 10) / 10
+
   const bowWaveByMonth = computeBowWaveByMonth(months, windowEnd, deltaHrs, scenario, recoveryDateOverride)
+  const bowWaveCountByMonth = computeBowWaveByMonth(months, windowEnd, slippedCount, scenario, recoveryDateOverride)
 
   const chartData = months.map(m => {
     const label  = formatMonthLabel(m)
@@ -279,16 +321,27 @@ export function buildChartDataByCategory(scheduleA, scheduleB, bowWaveResult, sc
 
     const totalPlanned = categories.reduce((sum, cat) => sum + (catByMonth[cat][label] || 0), 0)
     const bwTotal = bowWaveByMonth[label] || 0
+    const bwCountTotal = bowWaveCountByMonth[label] || 0
+    const totalFinishing = categories.reduce((sum, cat) => sum + (catFinishing[cat][label] || 0), 0)
 
     for (const cat of categories) {
       const planned = catByMonth[cat][label] || 0
       row[`cat__${cat}`] = Math.round(planned * 10) / 10
-      // Proportional share of this month's bow wave for this category
       const bwShare = totalPlanned > 0 ? bwTotal * (planned / totalPlanned) : 0
       row[`cat__${cat}__bw`] = Math.round(bwShare * 10) / 10
+
+      row[`cat__${cat}__finishing`] = catFinishing[cat][label] || 0
+      row[`cat__${cat}__starting`] = catStarting[cat][label] || 0
+      const fin = catFinishing[cat][label] || 0
+      row[`cat__${cat}__bwcount`] = totalFinishing > 0
+        ? Math.round(bwCountTotal * (fin / totalFinishing) * 10) / 10
+        : 0
     }
 
     row.bowWave = Math.round(bwTotal * 10) / 10
+    row.finishing = categories.reduce((s, c) => s + (catFinishing[c][label] || 0), 0)
+    row.starting = categories.reduce((s, c) => s + (catStarting[c][label] || 0), 0)
+    row.bowWaveCount = Math.round(bwCountTotal * 10) / 10
     return row
   })
 
@@ -310,17 +363,33 @@ export function buildChartData(scheduleA, scheduleB, bowWaveResult, scenario, en
 
   const months = generateMonths(projectStart, projectEnd)
 
-  // Build planned hours per month from selected base schedule
+  // Build planned hours and activity counts per month from selected base schedule
   const baseActivities = baseSchedule === 'A' ? scheduleA : scheduleB
   const plannedByMonth = {}
+  const finishingByMonth = {}
+  const startingByMonth = {}
   for (const m of months) {
     const mStart = monthStart(m)
     const mEnd = monthEnd(m)
     const label = formatMonthLabel(m)
     plannedByMonth[label] = baseActivities.reduce((sum, act) => sum + hoursInMonth(act, mStart, mEnd), 0)
+    finishingByMonth[label] = activitiesFinishingInMonth(baseActivities, mStart, mEnd)
+    startingByMonth[label] = activitiesStartingInMonth(baseActivities, mStart, mEnd)
   }
 
+  // Derive slipped activity count from the hours-based bow wave ratio
+  // This is more reliable than checking complete_pct on individual activities
+  const { plannedHrs } = bowWaveResult
+  const incompleteFraction = plannedHrs > 0 ? deltaHrs / plannedHrs : 0
+  const activitiesInWindow = baseActivities.filter(a => {
+    const end = a.end_date instanceof Date ? a.end_date : new Date(a.end_date)
+    if (!end || isNaN(end)) return false
+    return end >= windowStart && end <= windowEnd
+  }).length
+  const slippedCount = Math.round(activitiesInWindow * incompleteFraction * 10) / 10
+
   const bowWaveByMonth = computeBowWaveByMonth(months, windowEnd, deltaHrs, scenario, recoveryDateOverride)
+  const bowWaveCountByMonth = computeBowWaveByMonth(months, windowEnd, slippedCount, scenario, recoveryDateOverride)
 
   // Assemble final chart data array
   return months.map(m => {
@@ -333,6 +402,9 @@ export function buildChartData(scheduleA, scheduleB, bowWaveResult, scenario, en
       month: label,
       planned: Math.round((plannedByMonth[label] || 0) * 10) / 10,
       bowWave: Math.round((bowWaveByMonth[label] || 0) * 10) / 10,
+      finishing: finishingByMonth[label] || 0,
+      starting: startingByMonth[label] || 0,
+      bowWaveCount: Math.round((bowWaveCountByMonth[label] || 0) * 10) / 10,
       isPast,
       isWindow,
     }

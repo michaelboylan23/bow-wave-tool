@@ -161,11 +161,13 @@ export default function Instructions() {
           <ul className="flex flex-col gap-2 mt-1">
             {[
               ['Two-Schedule Bow Wave', [
-                'KPI cards — Planned hours, Actual completed hours, Bow Wave (Delta), and Completion % for the window',
+                'KPI cards — Planned hours, Actual completed hours, Bow Wave (Delta), and Completion % for the window. In activity count modes the KPIs show activity-level metrics instead.',
                 'Workload chart — monthly stacked bar chart with planned work and bow wave; use the Group by dropdown to split bars by any column (e.g. CLIN, phase, responsibility)',
+                'View modes — toggle between Hours, Days, Finishing (activities ending each month), and Starting (activities beginning each month) using the buttons above the chart',
                 'Redistribution scenarios — four tabs showing how the bow wave could be redistributed: Front-Load, End-Load, Distribute to End, and Distribute to Recovery',
               ]],
               ['Multi-Schedule Trend', [
+                'Remaining work chart — bar/line chart showing planned work remaining per schedule. Toggle between Hours, Days, Finishing, and Starting views.',
                 'In-Flight Work Trend — line chart showing how much work was started but not finished at each schedule\'s Data Date; a rising trend indicates an accumulating backlog',
                 'S-Curve — cumulative planned hours per schedule; helps visualise whether the project front-loaded or back-loaded work over successive updates',
               ]],
@@ -180,6 +182,24 @@ export default function Instructions() {
                     </li>
                   ))}
                 </ul>
+              </li>
+            ))}
+          </ul>
+        </Step>
+
+        <Step number="7b" title="Export Charts">
+          <p className="text-fg-2 text-sm leading-relaxed">
+            Every chart has three export options in the top-right corner:
+          </p>
+          <ul className="flex flex-col gap-1.5 mt-1">
+            {[
+              ['PDF', 'Opens the system print dialog with the chart formatted for landscape printing. The printout includes project metadata and the current theme colors.'],
+              ['XLSX', 'Downloads an Excel file with the chart data across four sheets — Hours, Days, Finishing, and Starting — plus an Info sheet with project metadata, active filters, and grouping settings.'],
+              ['Preview', 'Opens a full-screen print preview showing how the chart will look when printed. Click Print to send it to the printer, or press Escape to close.'],
+            ].map(([label, desc]) => (
+              <li key={label} className="flex gap-2 text-sm">
+                <span className="text-blue-400 mt-0.5 shrink-0">→</span>
+                <span className="text-fg-2"><span className="text-fg font-medium">{label}</span> — {desc}</span>
               </li>
             ))}
           </ul>

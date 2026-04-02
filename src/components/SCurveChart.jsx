@@ -1,10 +1,12 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import {
   ComposedChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer,
 } from 'recharts'
 import DualRangeSlider from './DualRangeSlider'
 import { exportChart } from '../utils/exportChart'
+import { exportXlsx, sCurveXlsxConfig } from '../utils/exportXlsx'
+import PrintPreviewModal from './PrintPreviewModal'
 import { useChartColors } from '../hooks/useChartColors'
 
 function shortName(fileName, dataDate) {
@@ -46,6 +48,7 @@ export default function SCurveChart({
   seriesOverrides, onSeriesOverridesChange,
 }) {
   const exportRef = useRef(null)
+  const [showPreview, setShowPreview] = useState(false)
   const cc = useChartColors()
   const { monthLabels = [], series = [] } = sCurveData || {}
 
@@ -96,6 +99,14 @@ export default function SCurveChart({
     exportChart(exportRef.current, meta, `${slug}-s-curve`)
   }
 
+  const handleExportXlsx = () => {
+    const meta = []
+    if (projectNumber || projectName) meta.push(`Project: ${[projectNumber, projectName].filter(Boolean).join(' — ')}`)
+    const slug = [projectNumber, projectName].filter(Boolean).join('-').replace(/\s+/g, '-') || 's-curve'
+    const { data, columns, headers } = sCurveXlsxConfig(sCurveData, { unit })
+    exportXlsx(data, { filename: `${slug}-s-curve`, columns, headers, metaLines: meta })
+  }
+
   return (
     <div className="bg-card rounded-xl p-6 flex flex-col gap-6">
       <div ref={exportRef} className="flex flex-col gap-6">
@@ -108,14 +119,31 @@ export default function SCurveChart({
               Cumulative planned hours per schedule. Diverging end-points indicate scope growth between updates.
             </p>
           </div>
-          <button
-            onClick={handleExport}
-            className="print:hidden flex items-center gap-1.5 px-3 py-1 rounded-lg bg-control hover:bg-muted
-              text-fg-3 hover:text-fg text-xs font-medium transition-colors"
-          >
-            <DownloadIcon />
-            Export PDF
-          </button>
+          <div className="flex items-center gap-2 print:hidden">
+            <button
+              onClick={handleExport}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-control hover:bg-muted
+                text-fg-3 hover:text-fg text-xs font-medium transition-colors"
+            >
+              <DownloadIcon />
+              PDF
+            </button>
+            <button
+              onClick={handleExportXlsx}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-control hover:bg-muted
+                text-fg-3 hover:text-fg text-xs font-medium transition-colors"
+            >
+              <DownloadIcon />
+              XLSX
+            </button>
+            <button
+              onClick={() => setShowPreview(true)}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-control hover:bg-muted
+                text-fg-3 hover:text-fg text-xs font-medium transition-colors"
+            >
+              Preview
+            </button>
+          </div>
         </div>
 
         <ResponsiveContainer key={unit} width="100%" height={380}>
@@ -251,6 +279,19 @@ export default function SCurveChart({
           })}
         </div>
       </div>
+
+      {showPreview && (
+        <PrintPreviewModal
+          sourceRef={exportRef}
+          metaLines={(() => {
+            const meta = []
+            if (projectNumber || projectName) meta.push(`Project: ${[projectNumber, projectName].filter(Boolean).join(' — ')}`)
+            return meta
+          })()}
+          filename={`${[projectNumber, projectName].filter(Boolean).join('-').replace(/\s+/g, '-') || 's-curve'}-s-curve`}
+          onClose={() => setShowPreview(false)}
+        />
+      )}
     </div>
   )
 }

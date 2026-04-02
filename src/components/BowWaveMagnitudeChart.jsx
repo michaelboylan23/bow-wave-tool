@@ -1,10 +1,12 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer,
 } from 'recharts'
 import { useChartColors } from '../hooks/useChartColors'
 import { exportChart } from '../utils/exportChart'
+import { exportXlsx, magnitudeXlsxConfig } from '../utils/exportXlsx'
+import PrintPreviewModal from './PrintPreviewModal'
 
 const CustomTooltip = ({ active, payload, unit, scheduleOverrides }) => {
   if (!active || !payload || !payload.length) return null
@@ -34,6 +36,7 @@ export default function BowWaveMagnitudeChart({
   scheduleOverrides, onScheduleOverridesChange,
 }) {
   const exportRef = useRef(null)
+  const [showPreview, setShowPreview] = useState(false)
   const cc = useChartColors()
 
   const getOv = (id) => scheduleOverrides?.[id] || {}
@@ -60,6 +63,14 @@ export default function BowWaveMagnitudeChart({
     exportChart(exportRef.current, meta, `${slug}-in-flight-trend`)
   }
 
+  const handleExportXlsx = () => {
+    const meta = []
+    if (projectNumber || projectName) meta.push(`Project: ${[projectNumber, projectName].filter(Boolean).join(' — ')}`)
+    const slug = [projectNumber, projectName].filter(Boolean).join('-').replace(/\s+/g, '-') || 'in-flight'
+    const { data, columns, headers } = magnitudeXlsxConfig(magnitudeData, { unit })
+    exportXlsx(data, { filename: `${slug}-in-flight-trend`, columns, headers, metaLines: meta })
+  }
+
   return (
     <div className="bg-card rounded-xl p-6 flex flex-col gap-4">
       <div ref={exportRef} className="flex flex-col gap-4">
@@ -70,14 +81,31 @@ export default function BowWaveMagnitudeChart({
               Work started but not yet finished at each schedule's data date — a rising trend indicates accumulating backlog.
             </p>
           </div>
-          <button
-            onClick={handleExport}
-            className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-control hover:bg-muted
-              text-fg-3 hover:text-fg text-xs font-medium transition-colors print:hidden"
-          >
-            <DownloadIcon />
-            Export PDF
-          </button>
+          <div className="flex items-center gap-2 print:hidden">
+            <button
+              onClick={handleExport}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-control hover:bg-muted
+                text-fg-3 hover:text-fg text-xs font-medium transition-colors"
+            >
+              <DownloadIcon />
+              PDF
+            </button>
+            <button
+              onClick={handleExportXlsx}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-control hover:bg-muted
+                text-fg-3 hover:text-fg text-xs font-medium transition-colors"
+            >
+              <DownloadIcon />
+              XLSX
+            </button>
+            <button
+              onClick={() => setShowPreview(true)}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-control hover:bg-muted
+                text-fg-3 hover:text-fg text-xs font-medium transition-colors"
+            >
+              Preview
+            </button>
+          </div>
         </div>
 
         {chartData.length >= 2 ? (
@@ -168,6 +196,19 @@ export default function BowWaveMagnitudeChart({
           })}
         </div>
       </div>
+
+      {showPreview && (
+        <PrintPreviewModal
+          sourceRef={exportRef}
+          metaLines={(() => {
+            const meta = []
+            if (projectNumber || projectName) meta.push(`Project: ${[projectNumber, projectName].filter(Boolean).join(' — ')}`)
+            return meta
+          })()}
+          filename={`${[projectNumber, projectName].filter(Boolean).join('-').replace(/\s+/g, '-') || 'in-flight'}-in-flight-trend`}
+          onClose={() => setShowPreview(false)}
+        />
+      )}
     </div>
   )
 }
