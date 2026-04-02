@@ -81,6 +81,8 @@ export default function App() {
   const [bowWaveZoom,    setBowWaveZoom]    = useState({ start: 0, end: -1 })
   const [sCurveZoom,     setSCurveZoom]     = useState({ start: 0, end: -1 })
   const [multiChartZoom, setMultiChartZoom] = useState({ start: 0, end: -1 })
+  const [bowWaveYZoom,   setBowWaveYZoom]   = useState({ start: 0, end: -1 })
+  const [multiYZoom,     setMultiYZoom]     = useState({ start: 0, end: -1 })
 
   // ── Display settings ────────────────────────────────────────────────────────
   const [unit,           setUnit]           = useState('hrs')
@@ -335,7 +337,7 @@ export default function App() {
       scenarioConfig,
       unit,
       baseSchedule,
-      bowWaveZoom, sCurveZoom, multiChartZoom,
+      bowWaveZoom, sCurveZoom, multiChartZoom, bowWaveYZoom, multiYZoom,
       savedAt: new Date().toISOString(),
     }
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
@@ -392,6 +394,8 @@ export default function App() {
           setBowWaveZoom(payload.bowWaveZoom     || { start: 0, end: -1 })
           setSCurveZoom(payload.sCurveZoom       || { start: 0, end: -1 })
           setMultiChartZoom(payload.multiChartZoom || { start: 0, end: -1 })
+          setBowWaveYZoom(payload.bowWaveYZoom   || { start: 0, end: -1 })
+          setMultiYZoom(payload.multiYZoom       || { start: 0, end: -1 })
           setActiveTab(payload.bowWaveResult ? 'Bow Wave' : 'Trend')
 
         // ── v1 migration ──
@@ -980,6 +984,9 @@ export default function App() {
                   categoryOverrides={bowWaveCategoryOverrides}
                   onCategoryOverridesChange={setBowWaveCategoryOverrides}
                   filterConfig={filterConfig}
+                  yZoomStart={bowWaveYZoom.start}
+                  yZoomEnd={bowWaveYZoom.end}
+                  onYZoomChange={(s, e) => setBowWaveYZoom({ start: s, end: e })}
                 />
               </div>
             </div>
@@ -1036,6 +1043,9 @@ export default function App() {
                 groupByColumns={availableFilterColumns}
                 seriesOverrides={multiSeriesOverrides}
                 onSeriesOverridesChange={setMultiSeriesOverrides}
+                yZoomStart={multiYZoom.start}
+                yZoomEnd={multiYZoom.end}
+                onYZoomChange={(s, e) => setMultiYZoom({ start: s, end: e })}
               />
 
               <BowWaveMagnitudeChart

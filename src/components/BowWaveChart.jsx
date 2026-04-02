@@ -68,6 +68,7 @@ export default function BowWaveChart({
   projectName, projectNumber, scenarioConfig,
   categoryOverrides, onCategoryOverridesChange,
   filterConfig,
+  yZoomStart, yZoomEnd, onYZoomChange,
 }) {
   const exportRef = useRef(null)
   const [showPreview, setShowPreview] = useState(false)
@@ -125,6 +126,18 @@ export default function BowWaveChart({
     (baseSchedule === 'A' ? 'Planned Work (Schedule 1)' : 'Planned Work (Schedule 2)')
   const bowWaveLabel  = () => getOv('__bowwave__').label?.trim() || 'Bow Wave'
 
+  // Compute natural Y max from visible data for the zoom slider
+  const naturalMax = Math.ceil(visibleData.reduce((max, d) => {
+    if (categoryChartData) {
+      const total = allCategories.reduce((s, cat) =>
+        s + (d[`cat__${cat}`] || 0) + (d[`cat__${cat}__bw`] || 0), 0)
+      return Math.max(max, total)
+    }
+    return Math.max(max, (d.planned || 0) + (d.bowWave || 0))
+  }, 0))
+  const yMin = yZoomStart || 0
+  const yMax = (yZoomEnd < 0 || yZoomEnd > naturalMax) ? naturalMax : yZoomEnd
+
   const categories = visibleCats
 
   const SCENARIO_LABELS = {
@@ -163,7 +176,7 @@ export default function BowWaveChart({
 
   return (
     <div className="bg-card rounded-xl p-6 flex flex-col gap-6">
-      <div ref={exportRef} className="flex flex-col gap-6">
+      <div ref={exportRef} className="flex flex-col gap-3">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h3 className="text-sm font-semibold text-fg-2">
           Workload Distribution & Bow Wave Redistribution
@@ -219,7 +232,7 @@ export default function BowWaveChart({
         </div>
       </div>
 
-      <ResponsiveContainer key={unit} width="100%" height={400}>
+      <ResponsiveContainer key={unit} width="100%" height={520}>
         <BarChart data={visibleData} margin={{ top: 10, right: 20, left: 20, bottom: 80 }}>
 
           {/* Hatch patterns for bow wave portions — one per category color */}
@@ -245,6 +258,8 @@ export default function BowWaveChart({
             interval="preserveStartEnd"
           />
           <YAxis
+            domain={[yMin, yMax]}
+            allowDataOverflow={true}
             tick={{ fill: cc.tick, fontSize: 11 }}
             label={{
               value: unit === 'hrs' ? 'Hours' : unit === 'days' ? 'Work Days'
@@ -316,8 +331,8 @@ export default function BowWaveChart({
       )}
 
       {/* KPI summary — included in export */}
-      <div className="border-t border-line-subtle pt-4">
-        <p className="text-xs text-fg-4 uppercase tracking-wide font-medium mb-3">Summary</p>
+      <div className="border-t border-line-subtle pt-2">
+        <p className="text-xs text-fg-4 uppercase tracking-wide font-medium mb-1">Summary</p>
         <div className="grid grid-cols-4 gap-3">
           <KpiCards result={bowWaveResult} unit={unit} onUnitChange={onUnitChange} />
         </div>
@@ -338,6 +353,21 @@ export default function BowWaveChart({
           startLabel={activeData[startIdx]?.month}
           endLabel={activeData[endIdx]?.month}
         />
+        {naturalMax > 0 && (
+          <>
+            <p className="text-xs text-fg-4 mt-1">Y-axis</p>
+            <DualRangeSlider
+              min={0}
+              max={naturalMax}
+              start={yMin}
+              end={yMax}
+              onStartChange={(v) => onYZoomChange(v, yMax)}
+              onEndChange={(v) => onYZoomChange(yMin, v)}
+              startLabel={yMin.toLocaleString('en-US')}
+              endLabel={yMax.toLocaleString('en-US')}
+            />
+          </>
+        )}
       </div>
 
       {/* In View controls */}

@@ -62,7 +62,7 @@ export default function PrintPreviewModal({ sourceRef, metaLines = [], filename 
     const style = document.createElement('style')
     style.textContent = `
       @media print {
-        @page { size: landscape; margin: 0; }
+        @page { size: A3 landscape; margin: 0; }
         body {
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
@@ -74,20 +74,24 @@ export default function PrintPreviewModal({ sourceRef, metaLines = [], filename 
         .--print-target {
           visibility: visible !important;
           position: fixed !important;
-          top: 1.2cm !important;
-          bottom: 1.2cm !important;
-          left: 2.2cm !important;
-          right: 2.2cm !important;
-          padding: 0 1cm !important;
+          top: 1cm !important;
+          left: 1cm !important;
+          width: 29.5cm !important;
+          height: 20.5cm !important;
+          padding: 0 1.5cm !important;
           background: ${card} !important;
-          overflow: visible !important;
+          overflow: hidden !important;
           box-sizing: border-box !important;
+          transform: scale(1.35) !important;
+          transform-origin: top left !important;
         }
         .--print-target * { visibility: visible !important; }
+        .--print-target .grid {
+          gap: 0.5rem !important;
+          max-width: 85% !important;
+        }
         .--print-target svg {
           overflow: visible !important;
-          max-width: 100% !important;
-          height: auto !important;
         }
       }
     `

@@ -111,6 +111,7 @@ export default function MultiScheduleChart({
   projectName, projectNumber,
   groupByColumn, onGroupByChange, groupByColumns,
   seriesOverrides, onSeriesOverridesChange,
+  yZoomStart, yZoomEnd, onYZoomChange,
 }) {
   const exportRef = useRef(null)
   const [showPreview, setShowPreview] = useState(false)
@@ -142,7 +143,6 @@ export default function MultiScheduleChart({
   const startIdx     = zoomStart
   const endIdx       = zoomEnd < 0 ? monthLabels.length - 1 : Math.min(zoomEnd, monthLabels.length - 1)
   const isCountMode  = unit === 'act_finish' || unit === 'act_start'
-  const toVal        = (v) => unit === 'hrs' ? v : unit === 'days' ? v / 8 : v
   const activeSeries = series.filter(s => !isHidden(s.id))
 
   // ── Chart data ─────────────────────────────────────────────────────────────
@@ -169,15 +169,33 @@ export default function MultiScheduleChart({
     })
   }, [monthLabels, startIdx, endIdx, series, seriesOverrides, groupByColumn, allCategories, unit, isCountMode])
 
+  // Compute natural Y max from visible chart data
+  const naturalMax = Math.ceil(chartData.reduce((max, row) => {
+    const vals = Object.entries(row).filter(([k]) => k !== 'month').map(([, v]) => v || 0)
+    return Math.max(max, ...vals)
+  }, 0))
+  const yMin = yZoomStart || 0
+  const yMax = (yZoomEnd < 0 || yZoomEnd > naturalMax) ? naturalMax : yZoomEnd
+
   // ── Early return — after all hooks ─────────────────────────────────────────
   if (!monthLabels.length || !series.length) return null
 
-  // ── Reference lines ────────────────────────────────────────────────────────
-  const dataDateLines = activeSeries.map(s => ({
-    id:    s.id,
-    label: formatMonthLabel(new Date(s.dataDate)),
-    color: effectiveColor(s.id),
-  }))
+  // ── Reference lines — only show for series with showDataDate enabled ──────
+  // Default: only the latest series has its data date line visible
+  const showDataDate = (id) => {
+    const ov = getOv(id)
+    if (ov.showDataDate != null) return ov.showDataDate
+    return series.find(s => s.id === id)?.isLatest ?? false
+  }
+  const dataDateLines = activeSeries
+    .filter(s => showDataDate(s.id))
+    .map(s => ({
+      id:    s.id,
+      label: formatMonthLabel(new Date(s.dataDate)),
+      color: effectiveColor(s.id),
+      fileName: s.fileName,
+      dataDate: s.dataDate,
+    }))
 
   // ── Export ─────────────────────────────────────────────────────────────────
   const handleExport = () => {
@@ -343,7 +361,7 @@ export default function MultiScheduleChart({
           </div>
         )}
 
-        <ResponsiveContainer key={`${unit}-${groupByColumn || 'none'}`} width="100%" height={420}>
+        <ResponsiveContainer key={`${unit}-${groupByColumn || 'none'}`} width="100%" height={580}>
           <ComposedChart data={chartData} margin={{ top: 10, right: 20, left: 20, bottom: 80 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={cc.grid} />
             <XAxis
@@ -355,6 +373,8 @@ export default function MultiScheduleChart({
               interval="preserveStartEnd"
             />
             <YAxis
+              domain={[yMin, yMax]}
+              allowDataOverflow={true}
               tick={{ fill: cc.tick, fontSize: 11 }}
               label={{
                 value: unit === 'hrs' ? 'Hours' : unit === 'days' ? 'Work Days'
@@ -386,6 +406,13 @@ export default function MultiScheduleChart({
                 strokeWidth={2}
                 strokeDasharray="3 3"
                 strokeOpacity={0.7}
+                label={{
+                  value: `${dl.fileName?.replace(/\.[^.]+$/, '')} DD`,
+                  position: 'insideTopRight',
+                  fill: dl.color,
+                  fontSize: 10,
+                  offset: 10,
+                }}
               />
             ))}
 
@@ -408,6 +435,21 @@ export default function MultiScheduleChart({
           startLabel={monthLabels[startIdx]}
           endLabel={monthLabels[endIdx]}
         />
+        {naturalMax > 0 && (
+          <>
+            <p className="text-xs text-fg-4 mt-1">Y-axis</p>
+            <DualRangeSlider
+              min={0}
+              max={naturalMax}
+              start={yMin}
+              end={yMax}
+              onStartChange={(v) => onYZoomChange(v, yMax)}
+              onEndChange={(v) => onYZoomChange(yMin, v)}
+              startLabel={yMin.toLocaleString('en-US')}
+              endLabel={yMax.toLocaleString('en-US')}
+            />
+          </>
+        )}
       </div>
 
       {/* Schedules in View */}
@@ -465,6 +507,19 @@ export default function MultiScheduleChart({
                   title={type === 'bar' ? 'Switch to line' : 'Switch to bar'}
                 >
                   {type === 'bar' ? '▬' : '—'}
+                </button>
+
+                {/* Data date line toggle */}
+                <button
+                  onClick={() => setOv(s.id, 'showDataDate', !showDataDate(s.id))}
+                  className={`shrink-0 px-1.5 py-0.5 rounded border text-xs transition-colors ${
+                    showDataDate(s.id)
+                      ? 'border-accent bg-accent/10 text-accent'
+                      : 'border-line text-fg-3 hover:border-fg-3'
+                  }`}
+                  title={showDataDate(s.id) ? 'Hide data date line' : 'Show data date line'}
+                >
+                  ┆
                 </button>
 
                 {/* Editable name */}
